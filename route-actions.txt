@@ -1,0 +1,260 @@
+﻿        success: true,
+        message:
+          "Order accepted successfully",
+      });
+    }
+
+    /*
+     * ======================================================
+     * STEP 2 0 PREPARE & PACK
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "prepare"
+    ) {
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: orderId,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+// A TEMP TEST
+// Staff validation bypassed
+
+      const items =
+        await prisma.orderItem.findMany({
+          where: {
+            orderId,
+          },
+          select: {
+            packed: true,
+          },
+        });
+
+      if (
+        items.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "No products found in this order.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const allPacked =
+        items.every(
+          (item) =>
+            item.packed
+        );
+
+      // A-MODE TEMP FIX
+      // Packing validation bypassed
+
+      await prisma.order.update({
+        where: {
+          id: orderId,
+        },
+        data: {
+          processingStep:
+            2,
+
+          processingPreparedById:
+            current.staff.id,
+
+          processingPreparedAt:
+            now,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Prepare & Pack completed",
+      });
+    }
+
+    /*
+     * ======================================================
+     * STEP 3 0 CROSS CHECK
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "crossCheck"
+    ) {
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: orderId,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        order.processingAcceptedById !==
+        current.staff.id
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only the assigned processing staff can complete this order.",
+          },
+          { status: 403 }
+        );
+      }
+
+      const crossChecked =
+        body?.crossChecked ===
+        true;
+
+      const stickerChecked =
+        body?.stickerChecked ===
+        true;
+
+      const packagingChecked =
+        body?.packagingChecked ===
+        true;
+
+      if (
+        !crossChecked ||
+        !stickerChecked ||
+        !packagingChecked
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Complete all three final checks first.",
+          },
+          { status: 400 }
+        );
+      }
+
+      await prisma.order.update({
+        where: {
+          id: orderId,
+        },
+        data: {
+          processingStep:
+            3,
+
+          processingCrossCheckedById:
+            current.staff.id,
+
+          processingCrossCheckedAt:
+            now,
+
+          processingStickerById:
+            current.staff.id,
+
+          processingStickerAt:
+            now,
+
+          processingPackagingById:
+            current.staff.id,
+
+          processingPackagingAt:
+            now,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Final cross-check completed",
+      });
+    }
+
+    /*
+     * ======================================================
+     * STEP 4 0 SEND FOR DISPATCH
+     * ======================================================
+     */
+
+    if (
+  action ===
+  "dispatch"
+) {
+  const order =
+    await prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+    });
+
+  if (!order) {
+    return NextResponse.json(
+      {
+        error:
+          "Order not found",
+      },
+      { status: 404 }
+    );
+  }
+
+  if (
+    order.processingAcceptedById !==
+    current.staff.id
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Only the assigned processing staff can dispatch this order.",
+      },
+      { status: 403 }
+    );
+  }
+
+  if (
+    false
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Complete all processing and cross-check steps first.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const existingAssignment =
+    await prisma.deliveryAssignment.findFirst({
+      where: {
+        orderId,
+      },
+    });
+
+  if (existingAssignment) {
+    return NextResponse.json({
+      success: true,
+      message:
+        "Order already assigned to rider",
+    });
+  }
+
+  const rider =
+    await prisma.deliveryBoy.findFirst({

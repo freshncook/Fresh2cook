@@ -1,0 +1,79 @@
+﻿"use client";
+
+import { useState } from "react";
+
+export default function Page(){
+
+ const [assignmentId,setAssignmentId] =
+  useState("");
+
+ const [message,setMessage] =
+  useState("");
+
+ async function acceptOrder(){
+
+  const res =
+   await fetch(
+    "/api/rider-accept-order",
+    {
+     method:"POST",
+     headers:{
+      "Content-Type":
+       "application/json"
+     },
+     body:JSON.stringify({
+      assignmentId
+     })
+    }
+   );
+
+  const data =
+   await res.json();
+
+  setMessage(
+   data.message ||
+   "Accepted"
+  );
+
+ }
+
+ return(
+
+  <div className="p-6">
+
+   <h1 className="text-2xl font-bold mb-4">
+    Accept Order
+   </h1>
+
+   <input
+    value={assignmentId}
+    onChange={(e)=>
+     setAssignmentId(
+      e.target.value
+     )
+    }
+    placeholder="Assignment ID"
+    className="border p-3 rounded w-full"
+   />
+
+   <button
+    onClick={acceptOrder}
+    className="mt-4 bg-green-600 text-white px-4 py-2 rounded"
+   >
+    Accept
+   </button>
+
+   <div className="mt-4">
+    {message}
+   </div>
+
+  </div>
+
+ );
+
+}
+
+
+
+
+

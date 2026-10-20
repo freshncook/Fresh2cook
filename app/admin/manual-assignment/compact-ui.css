@@ -1,0 +1,18 @@
+﻿.admin-compact-page { color:#1e293b; font-size:13px; }
+.admin-compact-page h1 { font-size:22px; line-height:1.25; font-weight:750; letter-spacing:-.025em; }
+.admin-compact-page h2 { font-size:14px; font-weight:700; }
+.admin-compact-page input,.admin-compact-page select,.admin-compact-page textarea { min-height:36px; border:1px solid #dbe2ea; border-radius:8px; padding:7px 10px; background:white; max-width:100%; }
+.admin-compact-page button { border-radius:8px; }
+.admin-compact-page table { width:100%; border-collapse:collapse; font-size:12px; }
+.admin-compact-page th { background:#f8fafc; color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+.admin-compact-page th,.admin-compact-page td { padding:9px 10px; border-bottom:1px solid #edf0f4; text-align:left; vertical-align:middle; }
+.admin-compact-page .admin-panel { border:1px solid #e2e8f0; border-radius:11px; background:#fff; box-shadow:0 1px 2px rgb(15 23 42 / .035); }
+.admin-compact-page .admin-stat { padding:11px 13px; border:1px solid #e2e8f0; border-radius:10px; background:white; min-width:0; }
+.admin-compact-page .admin-stat p:first-child { color:#64748b; font-size:11px; }
+.admin-compact-page .admin-stat p:last-child { font-size:21px; font-weight:750; line-height:1.3; margin-top:4px; }
+.admin-compact-page .admin-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.admin-compact-page .admin-scroll { overflow-x:auto; }
+@media(max-width:640px) {
+  .admin-compact-page h1 { font-size:19px; }
+  .admin-compact-page th,.admin-compact-page td { padding:8px; }
+}

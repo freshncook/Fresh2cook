@@ -1,0 +1,1814 @@
+﻿================ WALLET PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function WalletPage() {
+  const [wallet, setWallet] =
+    useState<any>({
+      balance: 0,
+      points: 0,
+    });
+
+  useEffect(() => {
+    const data = JSON.parse(
+      localStorage.getItem(
+        "freshcut-wallet"
+      ) ||
+        '{"balance":0,"points":0}'
+    );
+
+    setWallet(data);
+  }, []);
+
+  function saveWallet(data: any) {
+    localStorage.setItem(
+      "freshcut-wallet",
+      JSON.stringify(data)
+    );
+
+    setWallet(data);
+  }
+
+  function addCashback() {
+    const updated = {
+      ...wallet,
+      balance:
+        wallet.balance + 50,
+      points:
+        wallet.points + 50,
+    };
+
+    saveWallet(updated);
+
+    alert(
+      "â‚¹50 Cashback Added"
+    );
+  }
+
+  function referEarn() {
+    const updated = {
+      ...wallet,
+      balance:
+        wallet.balance + 100,
+      points:
+        wallet.points + 100,
+    };
+
+    saveWallet(updated);
+
+    alert(
+      "â‚¹100 Referral Reward Added"
+    );
+  }
+
+  function redeem() {
+    if (
+      wallet.balance < 50
+    ) {
+      alert(
+        "Minimum â‚¹50 Required"
+      );
+      return;
+    }
+
+    const updated = {
+      ...wallet,
+      balance:
+        wallet.balance - 50,
+      points:
+        wallet.points - 50,
+    };
+
+    saveWallet(updated);
+
+    alert(
+      "â‚¹50 Redeemed"
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+
+      <div className="max-w-5xl mx-auto">
+
+        <h1 className="text-4xl font-bold mb-8">
+          Fresh2Cook Wallet
+        </h1>
+
+        <div className="grid md:grid-cols-2 gap-6">
+
+          <div className="bg-white rounded-3xl shadow p-8">
+
+            <h2 className="text-xl font-bold">
+              Wallet Balance
+            </h2>
+
+            <div className="text-5xl font-bold text-green-600 mt-4">
+              â‚¹{wallet.balance}
+            </div>
+
+          </div>
+
+          <div className="bg-white rounded-3xl shadow p-8">
+
+            <h2 className="text-xl font-bold">
+              Reward Points
+            </h2>
+
+            <div className="text-5xl font-bold text-blue-600 mt-4">
+              {wallet.points}
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-4 mt-8">
+
+          <button
+            onClick={addCashback}
+            className="bg-green-600 text-white py-4 rounded-xl font-bold"
+          >
+            Add Cashback
+          </button>
+
+          <button
+            onClick={referEarn}
+            className="bg-purple-600 text-white py-4 rounded-xl font-bold"
+          >
+            Refer & Earn
+          </button>
+
+          <button
+            onClick={redeem}
+            className="bg-blue-600 text-white py-4 rounded-xl font-bold"
+          >
+            Redeem â‚¹50
+          </button>
+
+        </div>
+
+        <div className="bg-white rounded-3xl shadow p-8 mt-8">
+
+          <h2 className="text-2xl font-bold mb-4">
+            Loyalty Program
+          </h2>
+
+          <ul className="space-y-2">
+
+            <li>
+              ðŸ¥¬ Every Order Earns Points
+            </li>
+
+            <li>
+              ðŸŽ Referral = â‚¹100 Reward
+            </li>
+
+            <li>
+              ðŸ’° Redeem Wallet Balance
+            </li>
+
+            <li>
+              â­ Premium Customers Get Extra Cashback
+            </li>
+
+          </ul>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+================ CUSTOMER DETAILS ================
+import { redirect } from "next/navigation";
+
+export default function CustomerDetailsPage() {
+  redirect("/payment");
+}
+================ PAYMENT PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
+
+type CartItem = {
+  id: number;
+  name: string;
+  price: number;
+  qty: number;
+  pack?: string;
+  image?: string | null;
+};
+
+export default function PaymentPage() {
+  const [customer, setCustomer] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [gpsLocation, setGpsLocation] = useState("");
+
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState(0);
+
+  const [transactionId, setTransactionId] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  useEffect(() => {
+    const storedCart = JSON.parse(
+      localStorage.getItem("freshcut-cart") || "[]"
+    );
+
+    const safeCart: CartItem[] = Array.isArray(storedCart)
+      ? storedCart
+      : [];
+
+    setCart(safeCart);
+
+    const storedTotal = Number(
+      localStorage.getItem("freshcut-total") || 0
+    );
+
+    setTotal(storedTotal);
+
+    const totalItems = safeCart.reduce(
+      (sum: number, item: CartItem) =>
+        sum + Number(item.qty || 1),
+      0
+    );
+
+    setItems(totalItems);
+
+    setCustomer(
+      localStorage.getItem("freshcut-customer") || ""
+    );
+
+    setPhone(
+      localStorage.getItem("freshcut-phone") || ""
+    );
+
+    setAddress(
+      localStorage.getItem("freshcut-address") || ""
+    );
+  }, []);
+
+  const upiUrl =
+    `upi://pay?pa=ramakant.rao-1@okicici&pn=Fresh2Cook&am=${total}&cu=INR`;
+
+  const invoiceNumber =
+    `F2C-${Date.now()}`;
+
+  const invoiceDate =
+    new Date().toLocaleDateString("en-GB");
+
+  function getLocation() {
+    if (!navigator.geolocation) {
+      alert("GPS not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGpsLocation(
+          `${position.coords.latitude},${position.coords.longitude}`
+        );
+      },
+      () => {
+        alert("Unable to fetch location");
+      }
+    );
+  }
+
+  function openWhatsApp() {
+    const cleanedPhone =
+      phone.replace(/\D/g, "");
+
+    const whatsappNumber =
+      cleanedPhone.length === 10
+        ? `91${cleanedPhone}`
+        : cleanedPhone;
+
+    const totalItems = cart.reduce(
+      (sum: number, item: CartItem) =>
+        sum + Number(item.qty || 1),
+      0
+    );
+
+    const message = `
+Fresh2Cook â€“ Order Confirmation
+
+Dear ${customer}
+
+ðŸ“ Address
+${address}
+${city} - ${pincode}
+
+ðŸ“ž Mobile
+${phone}
+
+ðŸ§¾ Items: ${totalItems}
+ðŸ’° Amount: â‚¹${total}
+
+Payment Status: SUCCESS
+
+Invoice No: ${invoiceNumber}
+
+care@fresh2cook.in
+Customer Care: 9811001901
+
+Thank you for choosing Fresh2Cook.
+`;
+
+    window.open(
+      `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        message
+      )}`,
+      "_blank"
+    );
+  }
+
+  async function completePayment() {
+    if (!customer.trim()) {
+      alert("Enter Customer Name");
+      return;
+    }
+
+    if (!phone.trim()) {
+      alert("Enter Mobile Number");
+      return;
+    }
+
+    if (!address.trim()) {
+      alert("Enter Address");
+      return;
+    }
+
+    if (!transactionId.trim()) {
+      alert("Enter Transaction ID");
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customer,
+          phone,
+          address,
+          city,
+          pincode,
+          gpsLocation,
+          amount: total,
+          items: cart,
+          transactionId,
+          paymentStatus: "Paid",
+        }),
+      });
+
+      setPaymentSuccess(true);
+
+      setTimeout(() => {
+        openWhatsApp();
+      }, 1000);
+
+    } catch (error) {
+      console.error(error);
+      alert("Order Failed");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  if (paymentSuccess) {    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+
+        <div
+          id="invoice"
+          className="relative bg-white w-full max-w-5xl rounded-2xl shadow-xl overflow-hidden"
+        >
+
+          <img
+            src="/basket.png"
+            alt="Basket"
+            className="absolute bottom-6 right-6 w-72 opacity-10 pointer-events-none"
+          />
+
+          <div className="bg-green-700 text-white p-6">
+
+            <div className="flex justify-between items-center">
+
+              <div>
+                <img
+                  src="/fresh2cook-logo.png"
+                  alt="Fresh2Cook"
+                  className="h-20"
+                />
+              </div>
+
+              <div className="text-right">
+
+                <h1 className="text-3xl font-bold">
+                  TAX INVOICE
+                </h1>
+
+                <p>
+                  Invoice No: {invoiceNumber}
+                </p>
+
+                <p>
+                  Date: {invoiceDate}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="p-6">
+
+            <div className="border-b pb-4 mb-4">
+
+              <h2 className="font-bold text-xl mb-2">
+                Customer Details
+              </h2>
+
+              <p>
+                <strong>{customer}</strong>
+              </p>
+
+              <p>{phone}</p>
+
+              <p>{address}</p>
+
+              <p>
+                {city} - {pincode}
+              </p>
+
+              {gpsLocation && (
+                <p className="text-xs text-blue-600 break-all mt-2">
+                  GPS: {gpsLocation}
+                </p>
+              )}
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+
+              <div>
+                <strong>Email</strong>
+                <br />
+                care@fresh2cook.in
+              </div>
+
+              <div>
+                <strong>Customer Care</strong>
+                <br />
+                9811001901
+              </div>
+
+            </div>
+
+            <table className="w-full border text-sm">
+
+              <thead>
+
+                <tr className="bg-gray-100">
+
+                  <th className="border p-2 text-left">
+                    Product
+                  </th>
+
+                  <th className="border p-2">
+                    Qty
+                  </th>
+
+                  <th className="border p-2">
+                    Price
+                  </th>
+
+                  <th className="border p-2">
+                    Amount
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {cart.map((item) => (
+
+                  <tr key={item.id}>
+
+                    <td className="border p-2">
+                      {item.name}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      {item.qty}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      â‚¹{item.price}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      â‚¹{item.price * item.qty}
+                    </td>
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
+
+            <div className="mt-6 space-y-2">
+
+              <div className="flex justify-between">
+                <span>Total Items</span>
+                <span>{items}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Payment Status</span>
+
+                <span className="font-bold text-green-600">
+                  PAID
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Transaction ID</span>
+                <span>{transactionId}</span>
+              </div>
+
+              <div className="flex justify-between border-t pt-3 text-xl font-bold">
+
+                <span>
+                  Grand Total
+                </span>
+
+                <span>
+                  â‚¹{total}
+                </span>
+
+              </div>
+
+            </div>            <div className="mt-8 border-t pt-5 text-center">
+
+              <p className="font-bold text-green-700 text-xl">
+                Fresh2Cook
+              </p>
+
+              <p>
+                Fresh â€¢ Hygienic â€¢ Ready To Cook
+              </p>
+
+              <p>
+                Email: care@fresh2cook.in
+              </p>
+
+              <p>
+                Customer Care: 9811001901
+              </p>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Thank you for your order.
+              </p>
+
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3">
+
+              <button
+                onClick={() => window.print()}
+                className="bg-blue-600 text-white py-3 rounded-xl font-bold"
+              >
+                Download / Print Invoice
+              </button>
+
+              <button
+                onClick={openWhatsApp}
+                className="bg-green-600 text-white py-3 rounded-xl font-bold"
+              >
+                Send WhatsApp Confirmation
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f7f7f3] p-6">
+
+      <div className="max-w-3xl mx-auto">
+
+        <h1 className="text-4xl font-extrabold mb-6 text-center">
+          Checkout & Payment
+        </h1>
+
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+
+          <div className="bg-green-50 rounded-2xl p-6 mb-6">
+
+            <div className="flex justify-between">
+              <span>Total Items</span>
+
+              <span className="font-bold">
+                {items}
+              </span>
+            </div>
+
+            <div className="flex justify-between mt-3">
+
+              <span>Amount Payable</span>
+
+              <span className="text-2xl font-bold text-green-700">
+                â‚¹{total}
+              </span>
+
+            </div>
+
+          </div>
+
+          <div className="border rounded-2xl p-6 mb-6">
+
+            <h2 className="text-2xl font-bold text-center">
+              Scan QR & Pay
+            </h2>
+
+            <div className="flex justify-center mt-6 bg-white p-4 rounded-xl">
+
+              <QRCode
+                value={upiUrl}
+                size={300}
+              />
+
+            </div>
+
+            <div className="bg-gray-100 rounded-xl p-4 mt-5 text-center">
+
+              <div className="text-sm text-gray-500">
+                UPI ID
+              </div>
+
+              <div className="font-bold text-xl text-green-700">
+                ramakant.rao-1@okicici
+              </div>
+
+              <div className="mt-3 text-2xl font-bold text-green-700">
+                â‚¹{total}
+              </div>
+
+            </div>
+
+          </div>
+
+          <h2 className="text-2xl font-bold mb-4">
+            Customer Details
+          </h2>
+
+          <div className="space-y-4 mb-6">
+
+            <input
+              type="text"
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
+              placeholder="Customer Name"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Mobile Number"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <textarea
+              rows={3}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="House No, Street, Area"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="text"
+              value={pincode}
+              onChange={(e) => setPincode(e.target.value)}
+              placeholder="Pincode"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <div className="flex gap-3">
+
+              <input
+                type="text"
+                value={gpsLocation}
+                readOnly
+                placeholder="GPS Location"
+                className="flex-1 border p-4 rounded-xl"
+              />
+
+              <button
+                type="button"
+                onClick={getLocation}
+                className="bg-blue-600 text-white px-5 rounded-xl"
+              >
+                Get GPS
+              </button>
+
+            </div>
+
+          </div>
+
+          <div className="mb-6">
+
+            <label className="font-semibold block mb-2">
+              Transaction ID / UTR
+            </label>
+
+            <input
+              value={transactionId}
+              onChange={(e) =>
+                setTransactionId(e.target.value)
+              }
+              type="text"
+              placeholder="Enter Transaction ID"
+              className="w-full border rounded-xl p-4"
+            />
+
+          </div>
+
+          <button
+            onClick={completePayment}
+            disabled={processing}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-xl"
+          >
+            {processing
+              ? "Processing..."
+              : "Confirm Payment"}
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+================ CHECKOUT PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function CheckoutPage() {
+  const [customer, setCustomer] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState(0);
+
+  useEffect(() => {
+    const cart = JSON.parse(
+      localStorage.getItem("freshcut-cart") || "[]"
+    );
+
+    const grandTotal = cart.reduce(
+      (sum: number, item: any) =>
+        sum +
+        Number(item.price || 0) *
+          Number(item.qty || 1),
+      0
+    );
+
+    const totalItems = cart.reduce(
+      (sum: number, item: any) =>
+        sum + Number(item.qty || 1),
+      0
+    );
+
+    setTotal(grandTotal);
+    setItems(totalItems);
+  }, []);
+
+  function placeOrder() {
+    if (!customer || !phone || !address) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    localStorage.setItem(
+      "freshcut-customer",
+      customer
+    );
+
+    localStorage.setItem(
+      "freshcut-phone",
+      phone
+    );
+
+    localStorage.setItem(
+      "freshcut-address",
+      address
+    );
+
+    localStorage.setItem(
+      "freshcut-total",
+      total.toString()
+    );
+
+    localStorage.setItem(
+      "freshcut-items",
+      items.toString()
+    );
+
+    /*
+      Payment ke baad WhatsApp thank-you message
+      ke liye ye details payment page tak available rahengi.
+    */
+
+    localStorage.setItem(
+      "freshcut-payment-success-message",
+      [
+        "Thank you for your order with Fresh2Cook! ðŸ¥¬",
+        "",
+        `Customer: ${customer}`,
+        `Order Total: â‚¹${total}`,
+        `Items: ${items}`,
+        "",
+        "We appreciate your order.",
+        "",
+        "Please share your Feedback & Review:",
+        "https://fresh2cook.com/feedback",
+        "",
+        "Follow us on Social Media:",
+        "Facebook: https://facebook.com/",
+        "Instagram: https://instagram.com/",
+        "YouTube: https://youtube.com/",
+        "",
+        "Thank you for choosing Fresh2Cook â¤ï¸",
+      ].join("\n")
+    );
+
+    window.location.href = "/payment";
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+
+      <h1 className="text-4xl font-bold mb-6">
+        Checkout
+      </h1>
+
+      <div className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6">
+
+        <p className="text-lg">
+          Total Items
+        </p>
+
+        <p className="text-3xl font-bold">
+          {items}
+        </p>
+
+        <p className="text-lg mt-4">
+          Order Total
+        </p>
+
+        <p className="text-5xl font-bold text-green-700">
+          â‚¹{total}
+        </p>
+
+      </div>
+
+      <input
+        value={customer}
+        onChange={(e) =>
+          setCustomer(e.target.value)
+        }
+        placeholder="Customer Name"
+        className="border p-4 w-full mb-4 rounded-xl"
+      />
+
+      <input
+        value={phone}
+        onChange={(e) =>
+          setPhone(e.target.value)
+        }
+        placeholder="Mobile Number"
+        className="border p-4 w-full mb-4 rounded-xl"
+      />
+
+      <textarea
+        value={address}
+        onChange={(e) =>
+          setAddress(e.target.value)
+        }
+        placeholder="Delivery Address"
+        rows={4}
+        className="border p-4 w-full mb-4 rounded-xl"
+      />
+
+      <button
+        onClick={placeOrder}
+        className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl"
+      >
+        Continue To Payment â‚¹{total}
+      </button>
+
+    </div>
+  );
+}
+
+================ CART PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function CartPage() {
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    loadCart();
+  }, []);
+
+  function loadCart() {
+    const cart = JSON.parse(
+      localStorage.getItem("freshcut-cart") || "[]"
+    );
+
+    setItems(cart);
+  }
+
+  function updateCart(cart: any[]) {
+    localStorage.setItem(
+      "freshcut-cart",
+      JSON.stringify(cart)
+    );
+
+    setItems([...cart]);
+  }
+
+  function increase(index: number) {
+    const cart = [...items];
+
+    cart[index].qty =
+      Number(cart[index].qty || 1) + 1;
+
+    updateCart(cart);
+  }
+
+  function decrease(index: number) {
+    const cart = [...items];
+
+    if (cart[index].qty > 1) {
+      cart[index].qty =
+        Number(cart[index].qty) - 1;
+
+      updateCart(cart);
+    }
+  }
+
+  function removeItem(index: number) {
+    const cart = [...items];
+
+    cart.splice(index, 1);
+
+    updateCart(cart);
+  }
+
+  const totalItems = items.reduce(
+    (sum, item) =>
+      sum + Number(item.qty || 1),
+    0
+  );
+
+  const subTotal = items.reduce(
+    (sum, item) =>
+      sum +
+      Number(item.price || 0) *
+        Number(item.qty || 1),
+    0
+  );
+
+  const handlingCharge =
+    subTotal > 0 ? 10 : 0;
+
+  const deliveryCharge =
+    subTotal >= 500
+      ? 0
+      : subTotal > 0
+      ? 40
+      : 0;
+
+  const grandTotal =
+    subTotal +
+    handlingCharge +
+    deliveryCharge;
+
+  const freeDeliveryTarget = 500;
+
+  const remaining = Math.max(
+    freeDeliveryTarget - subTotal,
+    0
+  );
+
+  const progress = Math.min(
+    (subTotal / freeDeliveryTarget) * 100,
+    100
+  );
+
+  function proceed() {
+    localStorage.setItem(
+      "freshcut-subtotal",
+      String(subTotal)
+    );
+
+    localStorage.setItem(
+      "freshcut-handling",
+      String(handlingCharge)
+    );
+
+    localStorage.setItem(
+      "freshcut-delivery",
+      String(deliveryCharge)
+    );
+
+    localStorage.setItem(
+      "freshcut-total",
+      String(grandTotal)
+    );
+
+    localStorage.setItem(
+      "freshcut-items",
+      String(totalItems)
+    );
+
+    window.location.href =
+      "/customer-details";
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 pb-52">
+      <h1 className="text-4xl font-bold mb-6">
+        Shopping Cart
+      </h1>
+
+      {items.length === 0 && (
+        <div className="bg-white rounded-3xl p-10 text-center shadow">
+          <h2 className="text-2xl font-bold">
+            Cart Empty
+          </h2>
+
+          <a
+            href="/products"
+            className="inline-block mt-5 bg-green-600 text-white px-6 py-3 rounded-xl"
+          >
+            Shop Now
+          </a>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <>
+          <div className="bg-white rounded-3xl p-6 shadow mb-6">
+            <div className="flex justify-between mb-2">
+              <span>Products Total</span>
+              <span>â‚¹{subTotal}</span>
+            </div>
+
+            <div className="flex justify-between mb-2">
+              <span>Handling Charges</span>
+              <span>â‚¹{handlingCharge}</span>
+            </div>
+
+            <div className="flex justify-between mb-2">
+              <span>Delivery Charges</span>
+              <span>â‚¹{deliveryCharge}</span>
+            </div>
+
+            <hr className="my-3" />
+
+            <div className="flex justify-between text-2xl font-bold text-green-700">
+              <span>Grand Total</span>
+              <span>â‚¹{grandTotal}</span>
+            </div>
+          </div>
+
+          {subTotal < freeDeliveryTarget ? (
+            <div className="bg-white rounded-3xl p-6 shadow mb-6">
+              <p className="font-semibold mb-3 text-red-600">
+                Add â‚¹{remaining} More For FREE Delivery
+              </p>
+
+              <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden">
+                <div
+                  className="bg-red-500 h-4 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${progress}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-green-100 border border-green-300 rounded-3xl p-6 shadow mb-6">
+              <p className="font-bold text-green-700 text-center text-lg">
+                ðŸŽ‰ Congratulations! Free Delivery Unlocked
+              </p>
+
+              <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden mt-4">
+                <div className="bg-green-600 h-4 rounded-full w-full" />
+              </div>
+            </div>
+          )}
+
+          {items.map((item, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-3xl shadow p-5 mb-4"
+            >
+              <div className="flex justify-between">
+                <div>
+                  <h2 className="font-bold text-xl">
+                    {item.name}
+                  </h2>
+
+                  <p className="text-gray-500">
+                    â‚¹{item.price}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() =>
+                    removeItem(index)
+                  }
+                  className="text-red-600 font-bold"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 mt-4">
+                <button
+                  onClick={() =>
+                    decrease(index)
+                  }
+                  className="bg-red-500 text-white w-9 h-9 rounded-full"
+                >
+                  -
+                </button>
+
+                <span className="font-bold">
+                  {item.qty}
+                </span>
+
+                <button
+                  onClick={() =>
+                    increase(index)
+                  }
+                  className="bg-green-600 text-white w-9 h-9 rounded-full"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="mt-4 text-green-700 font-bold">
+                â‚¹
+                {Number(item.price) *
+                  Number(item.qty)}
+              </div>
+            </div>
+          ))}
+
+          <div className="fixed bottom-20 left-0 right-0 bg-white border-t shadow-2xl p-4 z-50">
+            <div className="max-w-6xl mx-auto flex justify-between items-center">
+              <div>
+                <div>
+                  {totalItems} Items
+                </div>
+
+                <div className="text-3xl font-bold text-green-700">
+                  â‚¹{grandTotal}
+                </div>
+              </div>
+
+              <button
+                onClick={proceed}
+                className="bg-green-600 text-white px-8 py-4 rounded-xl font-bold"
+              >
+                Proceed Payment
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+================ PRISMA SCHEMA ================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  area         String
+  source       String
+  interest     String
+  status       String
+  value        Int
+  nextFollowUp String
+  avatar       String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name     String
+  category String
+  pack     String
+
+  price Int
+  stock Int
+
+  image       String?
+  description String?
+
+  active     Boolean @default(true)
+  bestSeller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  customer  String
+  due       String
+  type      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       Int     @id @default(autoincrement())
+  customer String
+  phone    String?
+  address  String?
+  amount   Int
+  status   String  @default("Pending")
+
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now())
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  credit    Int
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            Int      @id @default(autoincrement())
+  referrerName  String
+  referrerPhone String
+  referredPhone String
+  orderAmount   Int
+  creditEarned  Int
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  plan      String
+  amount    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  discount   Int
+  minOrder   Int
+  active     Boolean  @default(true)
+  expiryDate DateTime
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  address   String
+  city      String
+  pincode   String
+  createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  category  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id        Int      @id @default(autoincrement())
+  vendorId  Int
+  product   String
+  quantity  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int      @id @default(autoincrement())
+  vendorId   Int
+  vendorName String
+  amount     Int
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryMovement {
+  id          Int      @id @default(autoincrement())
+  productName String
+  quantity    Int
+  movement    String
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  amount    Int
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model SupplierPayment {
+  id         Int      @id @default(autoincrement())
+  vendorName String
+  amount     Int
+  method     String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryAlert {
+  id          Int      @id @default(autoincrement())
+  productName String
+  stock       Int
+  threshold   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model DailySale {
+  id        Int      @id @default(autoincrement())
+  saleDate  String
+  orders    Int
+  revenue   Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  issue     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model LoyaltyTier {
+  id        Int      @id @default(autoincrement())
+  tierName  String
+  minSpend  Int
+  benefits  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerSegment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  channel   String
+  audience  String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CampaignLog {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  customer   String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String
+  action    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String
+  createdAt   DateTime @default(now())
+}
+
+model CampaignTrigger {
+  id          Int      @id @default(autoincrement())
+  triggerName String
+  condition   String
+  action      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomerJourney {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  stage     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model RevenueForecast {
+  id         Int      @id @default(autoincrement())
+  month      String
+  revenue    Int
+  prediction Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPrediction {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  prediction String
+  confidence Int
+  createdAt  DateTime @default(now())
+}
+
+model ChurnRisk {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  riskLevel String
+  score     Int
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  productName String
+  quantity    Int
+  price       Int
+  total       Int
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  invoiceNo String   @unique
+  customer  String
+  phone     String
+  total     Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerHistory {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model DeliveryZone {
+  id        Int      @id @default(autoincrement())
+  zoneName  String
+  sectors   String
+  charge    Int
+  createdAt DateTime @default(now())
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  name   String
+  mobile String @unique
+
+  password String?
+
+  vehicle String
+
+  aadhaar String?
+  address String?
+
+  photo String?
+
+  aadhaarFront String?
+  aadhaarBack  String?
+
+  aadharFile  String?
+  licenseFile String?
+  rcFile      String?
+
+  approvalStatus String @default("Pending")
+
+  rating Float @default(5)
+
+  completedDeliveries Int @default(0)
+
+  earnings Int @default(0)
+
+  latitude  Float?
+  longitude Float?
+  speed     Float?
+
+  lastSeen DateTime?
+
+  zoneId Int?
+
+  status String @default("Offline")
+
+  createdAt DateTime @default(now())
+}
+
+model RiderWalletTransaction {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  orderId Int?
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryAssignment {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  deliveryBoyId Int
+
+  zoneId Int?
+
+  otp String
+
+  status String @default("Pending Acceptance")
+
+  assignedAt DateTime @default(now())
+
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupDeadline   DateTime?
+  deliveryDeadline DateTime?
+
+  earnings Int @default(25)
+
+  customerRating Int?
+
+  adminAlert Boolean @default(false)
+
+  lateDelivery Boolean @default(false)
+
+  alertSent Boolean @default(false)
+
+  reassignedCount Int @default(0)
+
+  autoReassigned Boolean @default(false)
+
+  reassignedAt DateTime?
+}
+model RiderLocationHistory {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  latitude  Float
+  longitude Float
+
+  speed Float @default(0)
+
+  createdAt DateTime @default(now())
+}
+model RiderAttendance {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes Int @default(0)
+
+  date String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPayout {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  amount Int
+
+  status String @default("Pending")
+
+  requestedAt DateTime @default(now())
+
+  paidAt DateTime?
+}
+
+model RiderIncentive {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  title String
+
+  amount Int
+
+  month String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPenalty {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  reason String
+
+  amount Int
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryRoute {
+  id Int @id @default(autoincrement())
+
+  routeName String
+
+  zoneId Int?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  productId Int
+
+  createdAt DateTime @default(now())
+}
+
+model WalletLedger {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  amount Int
+
+  type String
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model VendorPaymentLedger {
+  id Int @id @default(autoincrement())
+
+  vendorId Int
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  insight String
+
+  priority String
+
+  createdAt DateTime @default(now())
+}
+

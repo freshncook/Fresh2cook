@@ -1,0 +1,1308 @@
+===== app/admin/orders/page.tsx =====
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [boys, setBoys] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const [ordersRes, boysRes] = await Promise.all([
+        fetch("/api/orders"),
+        fetch("/api/delivery-boys"),
+      ]);
+
+      const ordersData = await ordersRes.json();
+      const boysData = await boysRes.json();
+
+      setOrders(Array.isArray(ordersData) ? ordersData : ordersData?.orders || []);
+      setBoys(
+        Array.isArray(boysData)
+          ? boysData
+          : boysData?.riders || []
+      );
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function assignOrder(orderId: number, riderId: number) {
+    if (!riderId) return;
+
+    try {
+      const res = await fetch("/api/delivery-control", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+          riderId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Assignment Failed");
+        return;
+      }
+
+      alert("Order Assigned Successfully");
+      loadData();
+    } catch (error) {
+      console.error(error);
+      alert("Something Went Wrong");
+    }
+  }
+
+  const statuses = useMemo(() => {
+    const values = orders
+      .map((order) => order.status)
+      .filter(Boolean);
+
+    return ["All", ...Array.from(new Set(values))];
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    const keyword = search.toLowerCase().trim();
+
+    return orders.filter((order) => {
+      const matchesSearch =
+        !keyword ||
+        String(order.id || "").toLowerCase().includes(keyword) ||
+        String(order.customer || "").toLowerCase().includes(keyword) ||
+        String(order.phone || "").toLowerCase().includes(keyword) ||
+        String(order.address || "").toLowerCase().includes(keyword);
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        order.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, search, statusFilter]);
+
+  const totalAmount = orders.reduce(
+    (sum, order) => sum + Number(order.amount || 0),
+    0
+  );
+
+  const pendingCount = orders.filter(
+    (order) =>
+      !["Delivered", "Cancelled"].includes(order.status)
+  ).length;
+
+  const assignedCount = orders.filter((order) =>
+    String(order.status || "")
+      .toLowerCase()
+      .includes("assigned")
+  ).length;
+
+  if (loading) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center bg-[#f4f7f7]">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-8 py-6 text-center">
+          <div className="w-10 h-10 border-4 border-[#159447] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="mt-4 text-sm font-semibold text-gray-600">
+            Loading Orders...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f7f7] p-4 md:p-6">
+      <div className="max-w-[1500px] mx-auto space-y-6">
+
+        {/* HEADER */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-[#063f3d] to-[#0b625c] px-6 py-7 text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-2xl">
+                    ??
+                  </div>
+
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold">
+                      Orders Management
+                    </h1>
+
+                    <p className="text-sm text-white/70 mt-1">
+                      Manage orders and assign delivery riders
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={loadData}
+                className="bg-white text-[#063f3d] px-5 py-3 rounded-xl font-bold text-sm hover:bg-gray-100 transition"
+              >
+                ? Refresh Orders
+              </button>
+            </div>
+          </div>
+
+          {/* STATS */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-gray-100">
+            <div className="p-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Total Orders
+              </p>
+              <p className="text-2xl font-bold text-[#063f3d] mt-1">
+                {orders.length}
+              </p>
+            </div>
+
+            <div className="p-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Active Orders
+              </p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">
+                {pendingCount}
+              </p>
+            </div>
+
+            <div className="p-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Assigned
+              </p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">
+                {assignedCount}
+              </p>
+            </div>
+
+            <div className="p-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Order Value
+              </p>
+              <p className="text-2xl font-bold text-[#159447] mt-1">
+                ?{totalAmount.toLocaleString("en-IN")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* FILTER BAR */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                ??
+              </span>
+
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search order, customer, mobile or address..."
+                className="w-full border border-gray-200 bg-gray-50 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-[#159447]/20 focus:border-[#159447]"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="md:w-56 border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-[#159447]/20 focus:border-[#159447]"
+            >
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status === "All" ? "All Statuses" : status}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* ORDERS */}
+        <div className="space-y-4">
+
+          {filteredOrders.map((order: any) => {
+            const status = String(order.status || "Unknown");
+
+            const statusLower = status.toLowerCase();
+
+            const statusClass =
+              statusLower.includes("deliver")
+                ? "bg-green-50 text-green-700 border-green-200"
+                : statusLower.includes("cancel")
+                ? "bg-red-50 text-red-700 border-red-200"
+                : statusLower.includes("assign")
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : statusLower.includes("process")
+                ? "bg-purple-50 text-purple-700 border-purple-200"
+                : "bg-orange-50 text-orange-700 border-orange-200";
+
+            return (
+              <div
+                key={order.id}
+                className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden"
+              >
+                <div className="p-5 md:p-6">
+
+                  <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5">
+
+                    {/* ORDER INFO */}
+                    <div className="flex-1">
+
+                      <div className="flex flex-wrap items-center gap-3 mb-5">
+                        <div className="bg-[#063f3d] text-white px-4 py-2 rounded-xl font-bold">
+                          #{order.id}
+                        </div>
+
+                        <span
+                          className={`px-4 py-2 rounded-full border text-xs font-bold ${statusClass}`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400">
+                            Customer
+                          </p>
+                          <p className="font-bold text-gray-800 mt-1">
+                            {order.customer || "�"}
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400">
+                            Mobile
+                          </p>
+                          <p className="font-bold text-gray-800 mt-1">
+                            {order.phone || "�"}
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400">
+                            Order Value
+                          </p>
+                          <p className="font-bold text-[#159447] mt-1">
+                            ?{Number(order.amount || 0).toLocaleString("en-IN")}
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400">
+                            Delivery
+                          </p>
+                          <p className="font-bold text-gray-800 mt-1">
+                            {statusLower.includes("deliver")
+                              ? "Completed"
+                              : statusLower.includes("assign")
+                              ? "Rider Assigned"
+                              : "Awaiting Assignment"}
+                          </p>
+                        </div>
+
+                      </div>
+
+                      <div className="mt-4 bg-[#f8faf9] border border-gray-100 rounded-xl p-4">
+                        <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-1">
+                          Delivery Address
+                        </p>
+
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {order.address || "Address not available"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ASSIGN RIDER */}
+                    <div className="xl:w-80 bg-[#f8faf9] border border-gray-200 rounded-2xl p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-9 h-9 rounded-lg bg-[#063f3d] text-white flex items-center justify-center">
+                          ??
+                        </div>
+
+                        <div>
+                          <p className="font-bold text-gray-800">
+                            Delivery Rider
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Assign this order
+                          </p>
+                        </div>
+                      </div>
+
+                      <select
+                        className="w-full border border-gray-200 bg-white p-3 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-[#159447]/20 focus:border-[#159447]"
+                        onChange={(e) =>
+                          assignOrder(
+                            order.id,
+                            Number(e.target.value)
+                          )
+                        }
+                        defaultValue=""
+                      >
+                        <option value="">
+                          Select Rider
+                        </option>
+
+                        {(boys || []).map((boy: any) => (
+                          <option
+                            key={boy.id}
+                            value={boy.id}
+                          >
+                            {boy.name} - {boy.mobile}
+                          </option>
+                        ))}
+                      </select>
+
+                      {boys.length === 0 && (
+                        <p className="text-xs text-red-600 mt-3">
+                          No delivery riders available.
+                        </p>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {filteredOrders.length === 0 && (
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-14 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center text-3xl mx-auto">
+                ??
+              </div>
+
+              <h2 className="text-xl font-bold text-[#063f3d] mt-5">
+                No Orders Found
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-2">
+                Try changing your search or status filter.
+              </p>
+            </div>
+          )}
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+===== app/admin/delivery/page.tsx =====
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function DeliveryPage() {
+  const [riders, setRiders] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+
+    const interval = setInterval(() => {
+      loadData();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadData() {
+    try {
+      const riderRes = await fetch(
+        "/api/delivery-live-status"
+      );
+
+      const riderData =
+        await riderRes.json();
+
+      setRiders(
+        Array.isArray(riderData)
+          ? riderData
+          : []
+      );
+
+      const alertRes = await fetch(
+        "/api/admin-delivery-alerts"
+      );
+
+      const alertData =
+        await alertRes.json();
+
+      const pendingAlerts =
+        alertData.alerts || [];
+
+      setAlerts(pendingAlerts);
+
+      if (pendingAlerts.length > 0) {
+        const audio = new Audio(
+          "/warning.mp3"
+        );
+
+        audio.play().catch(() => {});
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="p-6">
+
+      {/* ALERT POPUP */}
+
+      {alerts.length > 0 && (
+        <div className="mb-6 bg-red-600 text-white p-5 rounded-2xl shadow-lg animate-pulse">
+
+          <div className="flex justify-between items-center">
+
+            <div>
+              <h2 className="text-2xl font-bold">
+                ðŸš¨ Delivery Alert
+              </h2>
+
+              <p>
+                {alerts.length} Order(s)
+                Rejected / Expired
+              </p>
+            </div>
+
+            <button
+              onClick={() =>
+                (window.location.href =
+                  "/admin/manual-assignment")
+              }
+              className="bg-white text-red-600 px-5 py-3 rounded-xl font-bold"
+            >
+              Assign Manually
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-6">
+
+        <div>
+
+          <h1 className="text-3xl font-bold">
+            Delivery Riders
+          </h1>
+
+          <p className="text-gray-500">
+            Live Rider Monitoring
+          </p>
+
+        </div>
+
+        <button
+          onClick={loadData}
+          className="bg-green-600 text-white px-5 py-3 rounded-xl"
+        >
+          Refresh
+        </button>
+
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-2xl p-10 text-center">
+          Loading...
+        </div>
+      ) : riders.length === 0 ? (
+        <div className="bg-white rounded-2xl p-10 text-center">
+          No Riders Found
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+
+          {riders.map((rider) => (
+            <div
+              key={rider.id}
+              className="bg-white rounded-3xl border shadow-sm p-6"
+            >
+
+              <div className="flex items-center gap-4">
+
+                <img
+                  src={
+                    rider.photo ||
+                    "/user.png"
+                  }
+                  alt=""
+                  className="h-16 w-16 rounded-full object-cover border"
+                />
+
+                <div>
+
+                  <h2 className="font-bold text-xl">
+                    {rider.name}
+                  </h2>
+
+                  <p className="text-gray-500">
+                    {rider.mobile}
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="mt-5 space-y-2">
+
+                <p>
+                  <strong>Status:</strong>{" "}
+                  <span
+                    className={
+                      rider.status ===
+                      "Available"
+                        ? "text-green-600"
+                        : rider.status ===
+                          "Busy"
+                        ? "text-orange-600"
+                        : "text-red-600"
+                    }
+                  >
+                    {rider.status}
+                  </span>
+                </p>
+
+                <p>
+                  <strong>Rating:</strong>
+                  {" "}â­ {rider.rating}
+                </p>
+
+                <p>
+                  <strong>Completed:</strong>
+                  {" "}
+                  {
+                    rider.completedDeliveries
+                  }
+                </p>
+
+                <p>
+                  <strong>Earnings:</strong>
+                  {" "}₹
+                  {rider.earnings}
+                </p>
+
+                <p>
+                  <strong>Speed:</strong>
+                  {" "}
+                  {Number(
+                    rider.speed || 0
+                  ).toFixed(0)}
+                  {" "}km/h
+                </p>
+
+              </div>
+
+              {rider.latitude &&
+                rider.longitude && (
+                  <a
+                    href={`https://www.google.com/maps?q=${rider.latitude},${rider.longitude}`}
+                    target="_blank"
+                    className="block mt-5 text-center bg-blue-600 text-white py-3 rounded-xl"
+                  >
+                    View Live Location
+                  </a>
+                )}
+
+            </div>
+          ))}
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+===== app/rider/page.tsx =====
+"use client";
+
+import { useEffect,useState } from "react";
+
+export default function Page(){
+
+ const [data,setData] =
+  useState<any>(null);
+
+ useEffect(()=>{
+
+  fetch("/api/rider-dashboard")
+   .then(r=>r.json())
+   .then(setData);
+
+ },[]);
+
+ return(
+
+  <div className="p-6">
+
+   <h1 className="text-3xl font-bold mb-6">
+    Rider Dashboard
+   </h1>
+
+   <div className="grid md:grid-cols-3 gap-4">
+
+    <div className="bg-white shadow rounded-xl p-6">
+     <div>Today's Earnings</div>
+     <div className="text-3xl font-bold">
+      ?{data?.earnings || 0}
+     </div>
+    </div>
+
+    <div className="bg-white shadow rounded-xl p-6">
+     <div>Deliveries</div>
+     <div className="text-3xl font-bold">
+      {data?.deliveries || 0}
+     </div>
+    </div>
+
+    <div className="bg-white shadow rounded-xl p-6">
+     <div>Riders</div>
+     <div className="text-3xl font-bold">
+      {data?.riders || 0}
+     </div>
+    </div>
+
+   </div>
+
+  </div>
+
+ );
+
+}
+
+===== prisma/schema.prisma =====
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  area         String
+  source       String
+  interest     String
+  status       String
+  value        Int
+  nextFollowUp String
+  avatar       String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name     String
+  category String
+  pack     String
+
+  mrp   Int @default(0)
+  price Int
+
+  stock Int
+
+  image       String?
+  description String?
+
+  active     Boolean @default(true)
+  bestSeller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  customer  String
+  due       String
+  type      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       Int     @id @default(autoincrement())
+  customer String
+  phone    String?
+  address  String?
+
+  amount Int
+  status String @default("Pending")
+
+  deliveryOtp String?
+
+  latitude  Float?
+  longitude Float?
+
+  processingUserId    Int?
+  processingStartedAt DateTime?
+  processingDeadline  DateTime?
+  readyAt             DateTime?
+  dispatchedAt        DateTime?
+
+  processingStep             Int       @default(0)
+  processingAcceptedById     Int?
+  processingAcceptedAt       DateTime?
+  processingPreparedById     Int?
+  processingPreparedAt       DateTime?
+  processingCrossCheckedById Int?
+  processingCrossCheckedAt   DateTime?
+  processingStickerById      Int?
+  processingStickerAt        DateTime?
+  processingPackagingById    Int?
+  processingPackagingAt      DateTime?
+  processingDispatchedById   Int?
+
+  createdAt DateTime @default(now())
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  credit    Int
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            Int      @id @default(autoincrement())
+  referrerName  String
+  referrerPhone String
+  referredPhone String
+  orderAmount   Int
+  creditEarned  Int
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  plan      String
+  amount    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  discount   Int
+  minOrder   Int
+  active     Boolean  @default(true)
+  expiryDate DateTime
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  address   String
+  city      String
+  pincode   String
+  createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  category  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id        Int      @id @default(autoincrement())
+  vendorId  Int
+  product   String
+  quantity  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int      @id @default(autoincrement())
+  vendorId   Int
+  vendorName String
+  amount     Int
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryMovement {
+  id          Int      @id @default(autoincrement())
+  productName String
+  quantity    Int
+  movement    String
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  amount    Int
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model SupplierPayment {
+  id         Int      @id @default(autoincrement())
+  vendorName String
+  amount     Int
+  method     String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryAlert {
+  id          Int      @id @default(autoincrement())
+  productName String
+  stock       Int
+  threshold   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model DailySale {
+  id        Int      @id @default(autoincrement())
+  saleDate  String
+  orders    Int
+  revenue   Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  issue     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model LoyaltyTier {
+  id        Int      @id @default(autoincrement())
+  tierName  String
+  minSpend  Int
+  benefits  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerSegment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  channel   String
+  audience  String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CampaignLog {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  customer   String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String
+  action    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String
+  createdAt   DateTime @default(now())
+}
+
+model CampaignTrigger {
+  id          Int      @id @default(autoincrement())
+  triggerName String
+  condition   String
+  action      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomerJourney {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  stage     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model RevenueForecast {
+  id         Int      @id @default(autoincrement())
+  month      String
+  revenue    Int
+  prediction Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPrediction {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  prediction String
+  confidence Int
+  createdAt  DateTime @default(now())
+}
+
+model ChurnRisk {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  riskLevel String
+  score     Int
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  productName String
+  quantity    Int
+  price       Int
+  total       Int
+
+  packed      Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  invoiceNo String   @unique
+  customer  String
+  phone     String
+  total     Int
+  packed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model CustomerHistory {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model DeliveryZone {
+  id        Int      @id @default(autoincrement())
+  zoneName  String
+  sectors   String
+  charge    Int
+  createdAt DateTime @default(now())
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  name   String
+  mobile String @unique
+
+  password String?
+
+  vehicle String
+
+  aadhaar String?
+  address String?
+
+  photo String?
+
+  aadhaarFront String?
+  aadhaarBack  String?
+
+  aadharFile  String?
+  licenseFile String?
+  rcFile      String?
+
+  approvalStatus String @default("Pending")
+
+  rating Float @default(5)
+
+  completedDeliveries Int @default(0)
+
+  earnings Int @default(0)
+
+  latitude  Float?
+  longitude Float?
+  speed     Float?
+
+  lastSeen DateTime?
+
+  zoneId Int?
+
+  status String @default("Offline")
+
+  createdAt DateTime @default(now())
+}
+
+model RiderWalletTransaction {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  orderId Int?
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryAssignment {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  deliveryBoyId Int
+
+  zoneId Int?
+
+  otp String
+
+  status String @default("Pending Acceptance")
+
+  assignedAt DateTime @default(now())
+
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupDeadline   DateTime?
+  deliveryDeadline DateTime?
+
+  earnings Int @default(25)
+
+  customerRating Int?
+
+  adminAlert Boolean @default(false)
+
+  lateDelivery Boolean @default(false)
+
+  alertSent Boolean @default(false)
+
+  reassignedCount Int @default(0)
+
+  autoReassigned Boolean @default(false)
+
+  reassignedAt DateTime?
+}
+
+model RiderLocationHistory {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  latitude  Float
+  longitude Float
+
+  speed Float @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model RiderAttendance {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes Int @default(0)
+
+  date String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPayout {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  amount Int
+
+  status String @default("Pending")
+
+  requestedAt DateTime @default(now())
+
+  paidAt DateTime?
+}
+
+model RiderIncentive {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  title String
+
+  amount Int
+
+  month String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPenalty {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  reason String
+
+  amount Int
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryRoute {
+  id Int @id @default(autoincrement())
+
+  routeName String
+
+  zoneId Int?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  productId Int
+
+  createdAt DateTime @default(now())
+}
+
+model WalletLedger {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  amount Int
+
+  type String
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model VendorPaymentLedger {
+  id Int @id @default(autoincrement())
+
+  vendorId Int
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  insight String
+
+  priority String
+
+  createdAt DateTime @default(now())
+}
+
+model StaffUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  mobile       String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

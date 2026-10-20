@@ -1,0 +1,22 @@
+$path = "components\product-card.tsx"
+
+$content = Get-Content $path -Raw
+
+$content = $content -replace '<option>\s*1kg\s*</option>','<option>1kg</option>
+          <option>1 Bunch</option>
+          <option>1 Pkt</option>'
+
+$content = $content -replace 'Pack','Pack Size'
+
+$content = $content -replace 'className="w-10 h-10"\s*>\s*-','className="w-8 h-8 text-sm">'
+
+$content = $content -replace 'className="w-10 h-10 text-green-600 font-bold"','className="w-8 h-8 text-green-600 font-bold text-sm"'
+
+$content = $content -replace 'className="w-full mt-3 bg-green-600 text-white py-2 rounded-lg text-sm font-semibold"','className="w-full mt-2 bg-green-600 text-white py-1 rounded-lg text-xs font-semibold"'
+
+Set-Content $path $content
+
+Write-Host ""
+Write-Host "================================="
+Write-Host "PRODUCT CARD UPDATED"
+Write-Host "================================="

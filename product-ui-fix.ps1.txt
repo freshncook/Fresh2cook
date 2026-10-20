@@ -1,0 +1,27 @@
+$file = "components\product-card.tsx"
+
+$content = Get-Content $file -Raw
+
+$content = $content -replace '<option>\s*1kg\s*</option>','<option>1kg</option>
+          <option>1 Bunch</option>
+          <option>1 Pkt</option>'
+
+$content = $content -replace 'Pack','Pack Size'
+
+$content = $content -replace 'Add','Add +'
+
+$content = $content -replace '>-\s*<','>Remove<'
+
+$content = $content -replace 'w-10 h-10','w-8 h-8 text-sm'
+
+$content = $content -replace 'className="font-bold"\s*>','className="font-semibold text-sm">'
+
+Set-Content $file $content
+
+Write-Host ""
+Write-Host "SUCCESS"
+Write-Host "Pack Dropdown Updated"
+Write-Host "250g / 500g / 1kg / 1 Bunch / 1 Pkt"
+Write-Host "Add Button Small"
+Write-Host "Qty Control Small"
+Write-Host ""

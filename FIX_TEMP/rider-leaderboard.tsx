@@ -1,0 +1,161 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+
+export default function RiderLeaderboardPage() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/admin-rider-leaderboard", {
+        cache: "no-store",
+      });
+
+      const result = await res.json();
+      setData(result);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const riders = Array.isArray(data?.leaderboard)
+    ? data.leaderboard
+    : Array.isArray(data?.riders)
+    ? data.riders
+    : [];
+
+  const topRider = data?.summary?.topRider;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f5f7f8] p-6">
+        <div className="rounded-2xl bg-white p-12 text-center text-gray-500 shadow-sm">
+          Loading leaderboard...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f5f7f8] p-4 md:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-6">
+
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#159447]">
+              Performance
+            </p>
+            <h1 className="mt-1 text-3xl font-bold text-[#123b39]">
+              Rider Leaderboard
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Delivery partner performance overview.
+            </p>
+          </div>
+
+          <button
+            onClick={loadData}
+            className="rounded-xl bg-[#063f3d] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0a504c]"
+          >
+            ? Refresh
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <p className="text-xs font-semibold uppercase text-gray-400">Total Riders</p>
+            <p className="mt-2 text-3xl font-bold text-[#123b39]">
+              {data?.summary?.totalRiders ?? riders.length}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <p className="text-xs font-semibold uppercase text-gray-400">Top Rider</p>
+            <p className="mt-2 truncate text-xl font-bold text-[#123b39]">
+              {topRider?.name || "ï¿½"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <p className="text-xs font-semibold uppercase text-gray-400">Top Deliveries</p>
+            <p className="mt-2 text-3xl font-bold text-green-600">
+  {topRider?.deliveries ?? 0}
+</p>
+          <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+            <p className="text-xs font-semibold uppercase text-gray-400">Highest Rating</p>
+            <p className="mt-2 text-3xl font-bold text-orange-500">
+              {topRider?.rating ?? "ï¿½"}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <div className="border-b border-gray-100 p-5">
+            <h2 className="text-lg font-bold text-[#123b39]">
+              Rider Performance
+            </h2>
+          </div>
+
+          {riders.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              No leaderboard data available.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-[#f8faf9]">
+                  <tr>
+                    <th className="p-4 text-left text-xs uppercase text-gray-400">Rank</th>
+                    <th className="p-4 text-left text-xs uppercase text-gray-400">Rider</th>
+                    <th className="p-4 text-left text-xs uppercase text-gray-400">Deliveries</th>
+                    <th className="p-4 text-left text-xs uppercase text-gray-400">Rating</th>
+                    <th className="p-4 text-left text-xs uppercase text-gray-400">Earnings</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {riders.map((rider: any, index: number) => (
+                    <tr key={rider.id  index} className="border-t border-gray-100">
+                      <td className="p-4">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e9f7ef] font-bold text-[#159447]">
+                          {index + 1}
+                        </span>
+                      </td>
+                      <td className="p-4 font-semibold text-[#123b39]">
+                        {rider.name || "ï¿½"}
+                      </td>
+                      <td className="p-4 text-gray-600">
+                        {rider.deliveries  rider.completedDeliveries  0}
+                      </td>
+                      <td className="p-4 text-gray-600">
+                        {rider.rating ?? "ï¿½"}
+                      </td>
+                      <td className="p-4 font-semibold text-gray-700">
+                        ?{rider.earnings  0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+
+
+

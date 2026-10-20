@@ -1,0 +1,276 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+
+type Task = {
+  id: number;
+  orderId: number;
+  status: string;
+  order?: {
+    customer?: string;
+    phone?: string;
+    address?: string;
+    amount?: number;
+  };
+};
+
+export default function Page() {
+  const [data, setData] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState<number | null>(null);
+
+  const riderId =
+    typeof window !== "undefined"
+      ? localStorage.getItem("riderId")
+      : null;
+
+  async function loadTasks() {
+    if (!riderId) return;
+
+    try {
+      const res = await fetch(
+        `/api/rider-my-tasks?riderId=${riderId}`,
+        { cache: "no-store" }
+      );
+
+      const result = await res.json();
+      setData(result);
+    } catch {
+      setMessage("Tasks load Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥â€¹ Ã Â¤Â¸Ã Â¤â€¢Ã Â¥â€¡");
+    }
+  }
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  async function acceptOrder(assignmentId: number) {
+    setLoading(assignmentId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-accept-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assignmentId }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        setMessage(result.error || "Order accept Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥ÂÃ Â¤â€ ");
+        return;
+      }
+
+      setMessage(
+        "Order Accepted Ã¢Å“â€¦ Customer Ã Â¤â€¢Ã Â¥â€¹ rider details Ã Â¤â€¢Ã Â¥â‚¬ notification Ã Â¤Â¤Ã Â¥Ë†Ã Â¤Â¯Ã Â¤Â¾Ã Â¤Â° Ã Â¤Â¹Ã Â¥Ë†Ã Â¥Â¤"
+      );
+
+      await loadTasks();
+    } catch {
+      setMessage("Order accept Ã Â¤â€¢Ã Â¤Â°Ã Â¤Â¨Ã Â¥â€¡ Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function pickupOrder(assignmentId: number) {
+    setLoading(assignmentId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-pickup-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assignmentId }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        setMessage(result.error || "Pickup Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥ÂÃ Â¤â€ ");
+        return;
+      }
+
+      setMessage(
+        "Order Picked Up Ã¢Å“â€¦ Ã Â¤â€¦Ã Â¤Â¬ customer location Ã Â¤ÂªÃ Â¤Â° Ã Â¤Å“Ã Â¤Â¾Ã Â¤â€¢Ã Â¤Â° Delivery Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥â€š Ã Â¤â€¢Ã Â¤Â°Ã Â¥â€¡Ã Â¤â€šÃ Â¥Â¤"
+      );
+
+      await loadTasks();
+    } catch {
+      setMessage("Pickup Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function startDelivery(assignmentId: number) {
+    window.location.href =
+      `/rider/verify-otp?assignmentId=${assignmentId}`;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 pb-24">
+      <div className="max-w-5xl mx-auto">
+
+        <h1 className="text-3xl font-bold mb-2">
+          My Delivery Tasks
+        </h1>
+
+        <p className="text-gray-600 mb-6">
+          Ã Â¤â€ Ã Â¤ÂªÃ Â¤â€¢Ã Â¥â€¡ assigned orders
+        </p>
+
+        {message && (
+          <div className="mb-5 bg-white border rounded-xl p-4 shadow-sm">
+            {message}
+          </div>
+        )}
+
+        {!data?.tasks && (
+          <div className="bg-white p-6 rounded-xl shadow">
+            Loading...
+          </div>
+        )}
+
+        {data?.tasks?.length === 0 && (
+          <div className="bg-white p-6 rounded-xl shadow">
+            No Assigned Orders
+          </div>
+        )}
+
+        <div className="grid gap-5">
+
+          {data?.tasks?.map((task: Task) => {
+
+            const status = task.status;
+
+            return (
+              <div
+                key={task.id}
+                className="bg-white rounded-2xl shadow p-5 border"
+              >
+
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <div className="text-xl font-bold">
+                      Order #{task.orderId}
+                    </div>
+
+                    <div className="text-sm text-gray-500 mt-1">
+                      Assignment #{task.id}
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1 rounded-full bg-slate-50 text-sm font-semibold">
+                    {status}
+                  </div>
+                </div>
+
+                {task.order && (
+                  <div className="mt-5 space-y-2 text-sm">
+                    <div>
+                      <b>Customer:</b>{" "}
+                      {task.order.customer || "-"}
+                    </div>
+
+                    <div>
+                      <b>Phone:</b>{" "}
+                      {task.order.phone || "-"}
+                    </div>
+
+                    <div>
+                      <b>Address:</b>{" "}
+                      {task.order.address || "-"}
+                    </div>
+
+                    <div>
+                      <b>Amount:</b>{" "}
+                      Ã¢â€šÂ¹{task.order.amount || 0}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5">
+
+                  {status === "Pending Acceptance" && (
+                    <button
+                      onClick={() => acceptOrder(task.id)}
+                      disabled={loading === task.id}
+                      className="w-full bg-green-600 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-50"
+                    >
+                      {loading === task.id
+                        ? "Accepting..."
+                        : "Accept Order"}
+                    </button>
+                  )}
+
+                  {status === "Accepted" && (
+                    <button
+                      onClick={() => pickupOrder(task.id)}
+                      disabled={loading === task.id}
+                      className="w-full bg-blue-600 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-50"
+                    >
+                      {loading === task.id
+                        ? "Processing..."
+                        : "Pickup Order"}
+                    </button>
+                  )}
+
+                  {status === "Picked Up" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-orange-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Start Delivery
+                    </button>
+                  )}
+
+                  {status === "Out For Delivery" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-orange-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Enter Delivery OTP
+                    </button>
+                  )}
+
+                  {status === "Otp Sent" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Verify Customer OTP
+                    </button>
+                  )}
+
+                  {status === "Delivered" && (
+                    <div className="w-full bg-green-50 text-green-700 px-4 py-3 rounded-xl font-semibold text-center">
+                      Delivered Ã¢Å“â€¦
+                      <br />
+                      <span className="text-sm">
+                        Earning Ã¢â€šÂ¹25
+                      </span>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            );
+          })}
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+
+

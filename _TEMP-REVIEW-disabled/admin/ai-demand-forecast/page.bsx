@@ -1,0 +1,141 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function AIDemandForecastPage() {
+  const [forecast, setForecast] =
+    useState<any[]>([]);
+
+  useEffect(() => {
+    generateForecast();
+  }, []);
+
+  function generateForecast() {
+    const products = JSON.parse(
+      localStorage.getItem(
+        "freshcut-products"
+      ) || "[]"
+    );
+
+    const orders = JSON.parse(
+      localStorage.getItem(
+        "freshcut-orders"
+      ) || "[]"
+    );
+
+    const result =
+      products.map(
+        (product: any) => {
+          const sold =
+            orders.reduce(
+              (
+                total: number,
+                order: any
+              ) =>
+                total +
+                Number(
+                  order.quantity ||
+                    0
+                ),
+              0
+            );
+
+          return {
+            id: product.id,
+            name:
+              product.name,
+            currentStock:
+              product.stock ||
+              0,
+            sold,
+            forecast:
+              sold * 1.3,
+          };
+        }
+      );
+
+    setForecast(result);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+
+      <div className="max-w-7xl mx-auto">
+
+        <h1 className="text-4xl font-bold mb-8">
+          AI Demand Forecast
+        </h1>
+
+        <div className="bg-blue-50 rounded-3xl p-6 mb-8">
+
+          <h2 className="text-2xl font-bold">
+            Next Week Prediction
+          </h2>
+
+          <p className="text-gray-600 mt-2">
+            AI estimates future stock demand based on orders.
+          </p>
+
+        </div>
+
+        <div className="space-y-4">
+
+          {forecast.map(
+            (item: any) => (
+
+              <div
+                key={item.id}
+                className="bg-white rounded-3xl shadow p-6"
+              >
+
+                <div className="flex justify-between items-center">
+
+                  <div>
+
+                    <h2 className="text-xl font-bold">
+                      {item.name}
+                    </h2>
+
+                    <p className="mt-2">
+                      Current Stock:
+                      {" "}
+                      {item.currentStock}
+                    </p>
+
+                  </div>
+
+                  <div className="text-right">
+
+                    <p className="text-blue-600 font-bold">
+                      Sold:
+                      {" "}
+                      {Math.round(
+                        item.sold
+                      )}
+                    </p>
+
+                    <p className="text-green-600 font-bold mt-2">
+                      Forecast:
+                      {" "}
+                      {Math.round(
+                        item.forecast
+                      )}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            )
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+

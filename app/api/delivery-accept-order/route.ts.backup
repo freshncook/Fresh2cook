@@ -1,0 +1,88 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const assignmentId = Number(body?.assignmentId);
+
+    if (!assignmentId) {
+      return NextResponse.json(
+        { success: false, error: "Assignment ID Required" },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.deliveryAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, error: "Assignment Not Found" },
+        { status: 404 }
+      );
+    }
+
+    if (assignment.status !== "Pending Acceptance") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Order is already ${assignment.status}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.deliveryAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: "Accepted",
+        acceptedAt: new Date(),
+        adminAlert: false,
+        alertSent: false,
+      },
+    });
+
+    await prisma.deliveryBoy.update({
+      where: { id: assignment.deliveryBoyId },
+      data: { status: "Busy" },
+    });
+
+    const order = await prisma.order.findUnique({
+      where: { id: assignment.orderId },
+    });
+
+    const rider = await prisma.deliveryBoy.findUnique({
+      where: { id: assignment.deliveryBoyId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      assignmentId,
+      assignment: updated,
+      customerNotification: order
+        ? {
+            customer: order.customer,
+            phone: order.phone,
+            message: `Fresh2Cook: Your order is on the way. Rider ${rider?.name || ""} (${rider?.mobile || ""}) has accepted your order. Your packet left for delivery Ã°Å¸Å¡Å¡`,
+          }
+        : null,
+      message: "Order Accepted Successfully",
+    });
+  } catch (error: any) {
+    console.error("DELIVERY ACCEPT ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Failed To Accept Order",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+

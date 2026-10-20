@@ -1,0 +1,8 @@
+﻿export async function sendWhatsAppMessage() {
+  return true;
+}
+
+
+
+
+

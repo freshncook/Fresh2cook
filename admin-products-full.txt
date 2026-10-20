@@ -1,0 +1,1339 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Product = {
+  id: number;
+  name: string;
+  category: string;
+  pack: string;
+  mrp: number;
+  price: number;
+  stock: number;
+  image?: string | null;
+  description?: string | null;
+  active?: boolean;
+  bestSeller?: boolean;
+};
+
+type ProductForm = {
+  name: string;
+  category: string;
+  pack: string;
+  mrp: string;
+  price: string;
+  stock: string;
+  image: string;
+  description: string;
+  bestSeller: boolean;
+  active: boolean;
+};
+
+const emptyForm: ProductForm = {
+  name: "",
+  category: "Vegetables",
+  pack: "",
+  mrp: "",
+  price: "",
+  stock: "",
+  image: "",
+  description: "",
+  bestSeller: false,
+  active: true,
+};
+
+async function getResponseData(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      error: text,
+    };
+  }
+}
+const autoAIDescription = (name: string) => {
+  return `Fresh2Cook ${name} - Freshly packed, hygienically processed and ready for your kitchen.`;
+};
+
+export default function ProductsManagePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const [newProduct, setNewProduct] =
+    useState<ProductForm>({
+      ...emptyForm,
+    });
+
+  const [editingProduct, setEditingProduct] =
+    useState<Product | null>(null);
+
+  const [editForm, setEditForm] =
+    useState<ProductForm>({
+      ...emptyForm,
+    });
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    try {
+      setLoading(true);
+      setErrorMessage("");
+
+      const response = await fetch(
+        "/api/products",
+        {
+          cache: "no-store",
+        }
+      );
+
+      const data =
+        await getResponseData(response);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to load products"
+        );
+      }
+
+      setProducts(
+        Array.isArray(data)
+          ? data
+          : []
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to load products"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openEdit(product: Product) {
+    setEditingProduct(product);
+
+    setEditForm({
+      name: product.name || "",
+      category:
+        product.category ||
+        "Vegetables",
+      pack: product.pack || "",
+      mrp: String(
+        product.mrp ?? ""
+      ),
+      price: String(
+        product.price ?? ""
+      ),
+      stock: String(
+        product.stock ?? ""
+      ),
+      image: product.image || "",
+      description:
+        product.description || "",
+      bestSeller:
+        product.bestSeller === true,
+      active:
+        product.active !== false,
+    });
+
+    setErrorMessage("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function closeEdit() {
+    setEditingProduct(null);
+
+    setEditForm({
+      ...emptyForm,
+    });
+  }
+
+  async function addProduct() {
+    setErrorMessage("");
+
+    const name =
+      newProduct.name.trim();
+
+    const pack =
+      newProduct.pack.trim();
+
+    const mrp = Math.round(
+      Number(newProduct.mrp)
+    );
+
+    const price = Math.round(
+      Number(newProduct.price)
+    );
+
+    const stock = Math.round(
+      Number(
+        newProduct.stock || 0
+      )
+    );
+
+    if (!name) {
+      setErrorMessage(
+        "Please enter Product Name."
+      );
+      return;
+    }
+
+    if (!pack) {
+      setErrorMessage(
+        "Please enter Pack Size."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(mrp) ||
+      mrp < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid MRP."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid Our Price."
+      );
+      return;
+    }
+
+    if (mrp < price) {
+      setErrorMessage(
+        "MRP cannot be less than Our Price."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(stock) ||
+      stock < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid Stock."
+      );
+      return;
+    }
+
+    try {
+      setAdding(true);
+
+      const response =
+        await fetch(
+          "/api/products",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              name,
+              category:
+                newProduct.category,
+              pack,
+              mrp,
+              price,
+              stock,
+              image:
+                newProduct.image.trim(),
+              description:
+                newProduct.description.trim(),
+              bestSeller:
+                newProduct.bestSeller,
+              active:
+                newProduct.active,
+            }),
+          }
+        );
+
+      const data =
+        await getResponseData(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to add product"
+        );
+      }
+
+      setNewProduct({
+        ...emptyForm,
+      });
+
+      await loadProducts();
+
+      alert(
+        "Product Added Successfully"
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to add product"
+      );
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function saveEdit() {
+    if (!editingProduct) {
+      return;
+    }
+
+    setErrorMessage("");
+
+    const name =
+      editForm.name.trim();
+
+    const pack =
+      editForm.pack.trim();
+
+    const mrp = Math.round(
+      Number(editForm.mrp)
+    );
+
+    const price = Math.round(
+      Number(editForm.price)
+    );
+
+    const stock = Math.round(
+      Number(
+        editForm.stock || 0
+      )
+    );
+
+    if (!name) {
+      setErrorMessage(
+        "Please enter Product Name."
+      );
+      return;
+    }
+
+    if (!pack) {
+      setErrorMessage(
+        "Please enter Pack Size."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(mrp) ||
+      mrp < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid MRP."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid Our Price."
+      );
+      return;
+    }
+
+    if (mrp < price) {
+      setErrorMessage(
+        "MRP cannot be less than Our Price."
+      );
+      return;
+    }
+
+    if (
+      !Number.isFinite(stock) ||
+      stock < 0
+    ) {
+      setErrorMessage(
+        "Please enter a valid Stock."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response =
+        await fetch(
+          `/api/products/${editingProduct.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              name,
+              category:
+                editForm.category,
+              pack,
+              mrp,
+              price,
+              stock,
+              image:
+                editForm.image.trim(),
+              description:
+                editForm.description.trim(),
+              bestSeller:
+                editForm.bestSeller,
+              active:
+                editForm.active,
+            }),
+          }
+        );
+
+      const data =
+        await getResponseData(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to update product"
+        );
+      }
+
+      setProducts((current) =>
+        current.map(
+          (product) =>
+            product.id ===
+            editingProduct.id
+              ? data
+              : product
+        )
+      );
+
+      closeEdit();
+
+      alert(
+        "Product Updated Successfully"
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update product"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleBestSeller(
+    product: Product
+  ) {
+    try {
+      setErrorMessage("");
+
+      const response =
+        await fetch(
+          `/api/products/${product.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              bestSeller:
+                product.bestSeller !==
+                true,
+            }),
+          }
+        );
+
+      const data =
+        await getResponseData(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to update Best Seller"
+        );
+      }
+
+      setProducts((current) =>
+        current.map(
+          (item) =>
+            item.id === product.id
+              ? data
+              : item
+        )
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update Best Seller"
+      );
+    }
+  }
+
+  async function toggleActive(
+    product: Product
+  ) {
+    try {
+      setErrorMessage("");
+
+      const response =
+        await fetch(
+          `/api/products/${product.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              active:
+                product.active === false,
+            }),
+          }
+        );
+
+      const data =
+        await getResponseData(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to update status"
+        );
+      }
+
+      setProducts((current) =>
+        current.map(
+          (item) =>
+            item.id === product.id
+              ? data
+              : item
+        )
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to update status"
+      );
+    }
+  }
+
+  async function deleteProduct(
+    product: Product
+  ) {
+    const confirmed =
+      window.confirm(
+        `Delete "${product.name}"?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+
+      const response =
+        await fetch(
+          `/api/products/${product.id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+      const data =
+        await getResponseData(
+          response
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to delete product"
+        );
+      }
+
+      setProducts((current) =>
+        current.filter(
+          (item) =>
+            item.id !== product.id
+        )
+      );
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete product"
+      );
+    }
+  }
+
+  function handleNewImage(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onloadend = () => {
+      setNewProduct({
+        ...newProduct,
+        image:
+          reader.result as string,
+      });
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function handleEditImage(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onloadend = () => {
+      setEditForm({
+        ...editForm,
+        image:
+          reader.result as string,
+      });
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="max-w-[1600px] mx-auto">
+
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold">
+              Product Management
+            </h1>
+
+            <p className="text-gray-500 mt-1">
+              Add, edit and manage Fresh2Cook products.
+            </p>
+          </div>
+
+          
+        </div>
+
+        {errorMessage && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700 font-semibold">
+            {errorMessage}
+          </div>
+        )}
+
+        {editingProduct && (
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-3xl shadow p-6 mb-8">
+
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-bold">
+                  Edit Product
+                </h2>
+
+                <p className="text-gray-500">
+                  Update all product details below.
+                </p>
+              </div>
+
+              <button
+                onClick={closeEdit}
+                className="bg-gray-800 text-white px-4 py-2 rounded-2xl font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+
+              <input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    name: e.target.value,
+                  })
+                }
+                placeholder="Product Name"
+                className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500"
+              />
+
+              <select
+                value={editForm.category}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    category:
+                      e.target.value,
+                  })
+                }
+                className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500"
+              >
+                <option value="Vegetables">
+                  Vegetables
+                </option>
+
+                <option value="Ready To Cook">
+                  Ready To Cook
+                </option>
+
+                <option value="Salads">
+                  Salads
+                </option>
+
+                <option value="Combo Packs">
+                  Combo Packs
+                </option>
+
+                <option value="Fruits">
+                  Fruits
+                </option>
+              </select>
+
+              <input
+                type="number"
+                value={editForm.mrp}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    mrp: e.target.value,
+                  })
+                }
+                placeholder="MRP"
+                className="border-2 border-red-200 p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-red-500"
+              />
+
+              <input
+                type="number"
+                value={editForm.price}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    price:
+                      e.target.value,
+                  })
+                }
+                placeholder="Our Price"
+                className="border-2 border-green-200 p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500"
+              />
+
+              <input
+                type="number"
+                value={editForm.stock}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    stock:
+                      e.target.value,
+                  })
+                }
+                placeholder="Stock"
+                className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500"
+              />
+
+              <input
+                value={editForm.pack}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    pack:
+                      e.target.value,
+                  })
+                }
+                placeholder="Pack Size"
+                className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500"
+              />
+
+              <div className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50">
+                <label className="block font-semibold mb-2">
+                  Product Image
+                </label>
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={
+                    handleEditImage
+                  }
+                  className="w-full"
+                />
+
+                {editForm.image && (
+                  <img
+                    src={editForm.image}
+                    alt="Preview"
+                    className="mt-3 h-24 w-24 object-cover rounded-2xl border hover:scale-110 transition"
+                  />
+                )}
+              </div>
+
+              <textarea
+                value={
+                  editForm.description
+                }
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    description:
+                      e.target.value,
+                  })
+                }
+                placeholder="AI Description (Auto Generated)"
+
+className="min-h-[140px] rounded-2xl border border-green-200"
+                rows={4}
+                className="border p-4 rounded-2xl bg-gradient-to-br from-white to-green-50 outline-none focus:border-green-500 md:col-span-2"
+              />
+
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-gradient-to-br from-white to-green-50 border p-4">
+              <div className="text-sm text-gray-500">
+                Product Saving
+              </div>
+
+              <div className="text-2xl font-extrabold text-red-600">
+                ?
+                {Math.max(
+                  Number(editForm.mrp || 0) -
+                    Number(editForm.price || 0),
+                  0
+                )}
+              </div>
+
+              <div className="text-xs text-gray-500">
+                MRP - Our Price
+              </div>
+            </div>
+
+            <div className="flex gap-6 mt-5">
+
+              <label className="flex items-center gap-3 font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={
+                    editForm.bestSeller
+                  }
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      bestSeller:
+                        e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 accent-green-600"
+                />
+
+                Best Seller
+              </label>
+
+              <label className="flex items-center gap-3 font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={
+                    editForm.active
+                  }
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      active:
+                        e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 accent-green-600"
+                />
+
+                Active Product
+              </label>
+            </div>
+
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-8 py-4 rounded-2xl font-bold"
+            >
+              {saving
+                ? "Saving..."
+                : "Save Changes"}
+            </button>
+
+          </div>
+        )}
+
+        <div className="bg-gradient-to-br from-white to-green-50 rounded-[32px] shadow-xl border border-green-100 p-6 mb-8">
+
+          <h2 className="text-2xl font-bold mb-5">
+            ?? ??? ??? Add New Product
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
+
+            <input
+              value={newProduct.name}
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  name:
+                    e.target.value,
+                })
+              }
+              placeholder="Product Name"
+              className="border p-4 rounded-2xl outline-none focus:border-green-500"
+            />
+
+            <select
+              value={newProduct.category}
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  category:
+                    e.target.value,
+                })
+              }
+              className="border p-4 rounded-2xl outline-none focus:border-green-500"
+            >
+              <option value="Vegetables">
+                Vegetables
+              </option>
+
+              <option value="Ready To Cook">
+                Ready To Cook
+              </option>
+
+              <option value="Salads">
+                Salads
+              </option>
+
+              <option value="Combo Packs">
+                Combo Packs
+              </option>
+
+              <option value="Fruits">
+                Fruits
+              </option>
+            </select>
+
+            <input
+              type="number"
+              value={newProduct.mrp}
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  mrp: e.target.value,
+                })
+              }
+              placeholder="MRP"
+              className="border-2 border-red-200 p-4 rounded-2xl outline-none focus:border-red-500"
+            />
+
+            <input
+              type="number"
+              value={newProduct.price}
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  price:
+                    e.target.value,
+                })
+              }
+              placeholder="Our Price"
+              className="border-2 border-green-200 p-4 rounded-2xl outline-none focus:border-green-500"
+            />
+
+            <input
+              type="number"
+              value={newProduct.stock}
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  stock:
+                    e.target.value,
+                })
+              }
+              placeholder="Stock"
+              className="border p-4 rounded-2xl outline-none focus:border-green-500"
+            />
+
+            <select
+  value={newProduct.pack}
+  onChange={(e) =>
+    setNewProduct({
+      ...newProduct,
+      pack: e.target.value,
+    })
+  }
+  className="border p-4 rounded-2xl outline-none focus:border-green-500"
+>
+  <option value="250g">250g</option>
+  <option value="500g">500g</option>
+  <option value="1kg">1kg</option>
+</select>
+              <select
+  value={newProduct.pack}
+  onChange={(e) =>
+    setNewProduct({
+      ...newProduct,
+      pack: e.target.value,
+    })
+  }
+  className="border p-4 rounded-2xl outline-none focus:border-green-500"
+>
+  <option value="250g">250g</option>
+  <option value="500g">500g</option>
+  <option value="1kg">1kg</option>
+</select>
+
+            <div className="border p-4 rounded-2xl">
+
+              <label className="block font-semibold mb-2">
+                Product Image
+              </label>
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={
+                  handleNewImage
+                }
+                className="w-full"
+              />
+
+              {newProduct.image && (
+                <img
+                  src={newProduct.image}
+                  alt="Preview"
+                  className="mt-3 h-28 w-28 object-cover rounded-2xl border"
+                />
+              )}
+
+            </div>
+
+            <textarea
+              value={
+                newProduct.description
+              }
+              onChange={(e) =>
+                setNewProduct({
+                  ...newProduct,
+                  description:
+                    e.target.value,
+                })
+              }
+              placeholder="AI Description (Auto Generated)"
+
+className="min-h-[140px] rounded-2xl border border-green-200"
+              rows={4}
+              className="border p-4 rounded-2xl outline-none focus:border-green-500 md:col-span-2"
+            />
+
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 p-4">
+            <div className="text-sm text-gray-500">
+              Customer Saving
+            </div>
+
+            <div className="text-2xl font-extrabold text-red-600">
+              ?
+              {Math.max(
+                Number(newProduct.mrp || 0) -
+                  Number(newProduct.price || 0),
+                0
+              )}
+            </div>
+
+            <div className="text-xs text-gray-500">
+              MRP - Our Price
+            </div>
+          </div>
+
+          <div className="flex gap-6 mt-5">
+
+            <label className="flex items-center gap-3 font-semibold cursor-pointer">
+              <input
+                type="checkbox"
+                checked={
+                  newProduct.bestSeller
+                }
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    bestSeller:
+                      e.target.checked,
+                  })
+                }
+                className="w-5 h-5 accent-green-600"
+              />
+
+              Add to Best Sellers
+            </label>
+
+            <label className="flex items-center gap-3 font-semibold cursor-pointer">
+              <input
+                type="checkbox"
+                checked={
+                  newProduct.active
+                }
+                onChange={(e) =>
+                  setNewProduct({
+                    ...newProduct,
+                    active:
+                      e.target.checked,
+                  })
+                }
+                className="w-5 h-5 accent-green-600"
+              />
+
+              Active Product
+            </label>
+
+          </div>
+
+          <div className="flex gap-3">
+  <button
+    onClick={addProduct}
+    className="bg-green-600 text-white px-6 py-3 rounded-2xl font-bold"
+  >
+    Add Product
+  </button>
+
+  <a
+    href="/admin/bulk-products"
+    className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold"
+  >
+    Bulk Add
+  </a>
+</div>
+
+        </div>
+
+        <h2 className="text-2xl font-bold mb-5">
+          Products ({products.length})
+        </h2>
+
+        {loading ? (
+          <div className="bg-gradient-to-br from-white to-green-50 rounded-[32px] shadow-xl border border-green-100 p-10 text-center">
+            Loading Products...
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+
+            {products.map(
+              (product) => {
+                const productSaving =
+                  Math.max(
+                    Number(
+                      product.mrp || 0
+                    ) -
+                      Number(
+                        product.price || 0
+                      ),
+                    0
+                  );
+
+                return (
+                  <div
+                    key={product.id}
+                    className={`bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-sm overflow-hidden border hover:shadow-lg transition-all ${
+                      product.bestSeller
+                        ? "border-yellow-400"
+                        : "border-transparent"
+                    }`}
+                  >
+
+                    <div className="relative">
+
+                      <img
+                        src={
+                          product.image?.trim()
+                            ? product.image
+                            : "/placeholder-product.png"
+                        }
+                        alt={
+                          product.name
+                        }
+                        className="w-full h-24 object-contain bg-gradient-to-br from-white to-green-50 p-1 transition-transform duration-300 hover:scale-110"
+                        onError={(e) => {
+                          e.currentTarget.src =
+                            "/placeholder-product.png";
+                        }}
+                      />
+
+                      {product.bestSeller && (
+                        <div className="absolute top-3 left-3 bg-yellow-400 text-black px-3 py-1 rounded-full text-xs font-bold">
+                          BEST SELLER
+                        </div>
+                      )}
+
+                    </div>
+
+                    <div className="p-3">
+
+                      <h3 className="font-bold text-lg">
+                        {product.name}
+                      </h3>
+
+                      <p className="text-sm text-gray-500">
+  Pack: {product.pack}
+</p>
+
+                      <div className="mt-2 rounded-lg bg-gray-50 p-2">
+
+  <div className="flex justify-between text-xs">
+    <span>MRP</span>
+    <span className="line-through">
+      ?{product.mrp || 0}
+    </span>
+  </div>
+
+  <div className="flex justify-between text-xs mt-1">
+    <span>Our Price</span>
+    <span className="text-green-600 font-bold">
+      ?{product.price}
+    </span>
+  </div>
+
+  <div className="flex justify-between text-xs mt-1">
+    <span>Saving</span>
+    <span className="text-red-600 font-bold">
+      ?{productSaving}
+    </span>
+  </div>
+
+</div>  
+
+                      <p className="text-sm text-gray-500 mt-2">
+                        Stock:{" "}
+                        {product.stock}
+                      </p>
+
+  <button
+    onClick={() =>
+      openEdit(product)
+    }
+    className="bg-blue-600 text-white py-1 rounded text-[11px] font-semibold"
+  >
+    Edit
+  </button>
+
+  <button
+    onClick={() =>
+      toggleBestSeller(product)
+    }
+    className={`py-1 rounded text-[11px] font-semibold ${
+      product.bestSeller
+        ? "bg-yellow-400 text-black"
+        : "bg-green-600 text-white"
+    }`}
+  >
+    Best
+  </button>
+
+  <button
+    onClick={() =>
+      toggleActive(product)
+    }
+    className="bg-gray-700 text-white py-1 rounded text-[11px]"
+  >
+    {product.active === false
+      ? "On"
+      : "Off"}
+  </button>
+
+  <button
+    onClick={() =>
+      deleteProduct(product)
+    }
+    className="bg-red-600 text-white py-1 rounded text-[11px]"
+  >
+    Del
+  </button>
+
+</div>
+
+
+                  </div>
+                );
+              }
+            )}
+
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+

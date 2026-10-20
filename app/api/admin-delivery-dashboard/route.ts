@@ -1,0 +1,110 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+
+    const [
+      totalRiders,
+      onlineRiders,
+      totalOrders,
+      deliveredOrders,
+      pendingOrders,
+      assignments,
+      pendingAssignments,
+      acceptedAssignments,
+      deliveredAssignments
+    ] = await Promise.all([
+
+      prisma.deliveryBoy.count(),
+
+      prisma.deliveryBoy.count({
+        where: {
+          status: "Online",
+        },
+      }),
+
+      prisma.order.count(),
+
+      prisma.order.count({
+        where: {
+          status: "Delivered",
+        },
+      }),
+
+      prisma.order.count({
+        where: {
+          status: {
+            notIn: [
+              "Delivered",
+              "Cancelled",
+            ],
+          },
+        },
+      }),
+
+      prisma.deliveryAssignment.count(),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Pending Acceptance",
+        },
+      }),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Accepted",
+        },
+      }),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Delivered",
+        },
+      }),
+
+    ]);
+
+    return NextResponse.json({
+      success: true,
+
+      totalRiders,
+      onlineRiders,
+
+      totalOrders,
+      deliveredOrders,
+      pendingOrders,
+
+      assignments,
+      pendingAssignments,
+      acceptedAssignments,
+      deliveredAssignments,
+    });
+
+  } catch (error: any) {
+
+    console.error(
+      "DELIVERY DASHBOARD ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message ?? "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+

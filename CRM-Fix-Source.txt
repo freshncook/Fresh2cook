@@ -1,0 +1,2874 @@
+﻿FRESH2COOK CRM SOURCE REPORT
+
+
+========== FILE: app\globals.css ==========
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f8faf8;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
+
+.offer-gradient {
+  background: linear-gradient(
+    135deg,
+    #2f8f46,
+    #45b45f
+  );
+}
+
+.hero-gradient {
+  background: linear-gradient(
+    135deg,
+    #2f8f46,
+    #1f6d34
+  );
+}
+
+.card-shadow {
+  box-shadow:
+    0 10px 30px
+    rgba(0, 0, 0, 0.08);
+}
+
+.category-card {
+  transition: 0.2s;
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+}
+
+.product-card {
+  transition: 0.2s;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+}
+
+.whatsapp-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 90px;
+  z-index: 999;
+}
+
+.whatsapp-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #25d366;
+  color: white;
+  font-size: 28px;
+  box-shadow:
+    0 10px 25px
+    rgba(37, 211, 102, 0.35);
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.deal-badge {
+  background: #e53935;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.price-old {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.price-new {
+  color: #2f8f46;
+  font-weight: 700;
+}
+
+.bottom-space {
+  height: 90px;
+}
+
+
+
+========== FILE: app\layout.tsx ==========
+
+import type { Metadata } from "next";
+import "./globals.css";
+import UserChrome from "@/components/user-chrome";
+
+export const metadata: Metadata = {
+  title: "Fresh2Cook",
+  description:
+    "Fresh vegetables, fruits and ready-to-cook products delivered to your doorstep.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="bg-white text-gray-900">
+        <UserChrome>{children}</UserChrome>
+      </body>
+    </html>
+  );
+}
+
+
+
+
+
+
+
+========== FILE: app\delivery\layout.tsx ==========
+
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+export default function DeliveryLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+
+  if (pathname === "/delivery/login") {
+    return <>{children}</>;
+  }
+
+  function logout() {
+    localStorage.removeItem(
+      "delivery-session"
+    );
+
+    window.location.href =
+      "/delivery/login";
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100">
+
+      <div className="flex">
+
+        <aside className="w-72 bg-white border-r shadow-sm min-h-screen">
+
+          <div className="p-6 border-b">
+
+            <h1 className="text-2xl font-bold text-green-600">
+              FreshCut
+            </h1>
+
+            <p className="text-sm text-gray-500 mt-1">
+              Delivery Partner Panel
+            </p>
+
+          </div>
+
+          <nav className="p-4 space-y-2">
+
+            <Link
+              href="/delivery/dashboard"
+              className="block px-4 py-3 rounded-xl hover:bg-green-50 font-medium"
+            >
+              ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â  Dashboard
+            </Link>
+
+            <Link
+              href="/delivery/location-tracker"
+              className="block px-4 py-3 rounded-xl hover:bg-green-50 font-medium"
+            >
+              ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒâ€šÃ‚Â Live Tracking
+            </Link>
+
+            <Link
+              href="/delivery/profile"
+              className="block px-4 py-3 rounded-xl hover:bg-green-50 font-medium"
+            >
+              ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“Ãƒâ€šÃ‚Â¤ My Profile
+            </Link>
+
+            <Link
+              href="/delivery/wallet"
+              className="block px-4 py-3 rounded-xl hover:bg-green-50 font-medium"
+            >
+              ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢Ãƒâ€šÃ‚Â° My Wallet
+            </Link>
+
+            <button
+              onClick={logout}
+              className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold"
+            >
+              Logout
+            </button>
+
+          </nav>
+
+        </aside>
+
+        <main className="flex-1 p-6">
+          {children}
+        </main>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+
+
+
+
+
+========== FILE: app\api\processing\orders\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentSession } from "@/lib/auth";
+
+const STARTABLE_STATUSES = [
+  "Pending",
+  "Confirmed",
+  "Paid",
+  "Payment Received",
+];
+
+const TERMINAL_STATUSES = [
+  "Delivered",
+  "Cancelled",
+];
+
+type SessionLike = {
+  kind?: string;
+  role?: string;
+  name?: string;
+  mobile?: string;
+  phone?: string;
+  staffId?: number;
+  id?: number;
+  userId?: number;
+};
+
+async function getProcessingStaff() {
+  const session =
+    await getCurrentSession();
+
+  const data =
+    session as SessionLike | null;
+
+  if (
+    !data ||
+    data.kind !== "staff" ||
+    String(data.role).toUpperCase() !==
+      "PROCESSING"
+  ) {
+    return null;
+  }
+
+  const candidateId = Number(
+    data.staffId || data.id || data.userId || 0
+  );
+
+  if (
+    Number.isInteger(candidateId) &&
+    candidateId > 0
+  ) {
+    const staff =
+      await prisma.staffUser.findUnique({
+        where: {
+          id: candidateId,
+        },
+      });
+
+    if (
+      staff &&
+      staff.active &&
+      String(staff.role).toUpperCase() ===
+        "PROCESSING"
+    ) {
+      return {
+        session: data,
+        staff,
+      };
+    }
+  }
+
+  const mobile =
+    String(
+      data.mobile || data.phone || ""
+    ).trim();
+
+  if (mobile) {
+    const staff =
+      await prisma.staffUser.findUnique({
+        where: {
+          mobile,
+        },
+      });
+
+    if (
+      staff &&
+      staff.active &&
+      String(staff.role).toUpperCase() ===
+        "PROCESSING"
+    ) {
+      return {
+        session: data,
+        staff,
+      };
+    }
+  }
+
+  const name =
+    String(
+      data.name || ""
+    ).trim();
+
+  if (name) {
+    const staff =
+      await prisma.staffUser.findFirst({
+        where: {
+          name,
+          active: true,
+          role: "PROCESSING",
+        },
+      });
+
+    if (staff) {
+      return {
+        session: data,
+        staff,
+      };
+    }
+  }
+
+  return null;
+}
+
+async function buildOrders() {
+  const orders =
+    await prisma.order.findMany({
+      where: {
+        status: {
+          notIn:
+            TERMINAL_STATUSES,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+  const orderIds =
+    orders.map(
+      (order) => order.id
+    );
+
+  const orderItems =
+    orderIds.length > 0
+      ? await prisma.orderItem.findMany({
+          where: {
+            orderId: {
+              in: orderIds,
+            },
+          },
+          orderBy: {
+            id: "asc",
+          },
+        })
+      : [];
+
+  // The rider assignment is stored separately from Order, so resolve it here
+  // to prevent the UI from displaying "Rider: Name unavailable".
+  const assignments = orderIds.length > 0
+    ? await prisma.deliveryAssignment.findMany({
+        where: { orderId: { in: orderIds } },
+        select: { orderId: true, deliveryBoyId: true, assignedAt: true },
+        orderBy: { assignedAt: "desc" },
+      })
+    : [];
+
+  const latestAssignmentByOrder = new Map<number, (typeof assignments)[number]>();
+  for (const assignment of assignments) {
+    if (!latestAssignmentByOrder.has(assignment.orderId)) {
+      latestAssignmentByOrder.set(assignment.orderId, assignment);
+    }
+  }
+
+  const assignedRiderIds = [...new Set(assignments.map((assignment) => assignment.deliveryBoyId))];
+  const assignedRiders = assignedRiderIds.length > 0
+    ? await prisma.deliveryBoy.findMany({
+        where: { id: { in: assignedRiderIds } },
+        select: { id: true, name: true, mobile: true },
+      })
+    : [];
+  const assignedRiderMap = new Map(assignedRiders.map((rider) => [rider.id, rider]));
+
+  const productIds = [
+    ...new Set(
+      orderItems.map(
+        (item) =>
+          item.productId
+      )
+    ),
+  ];
+
+  const riders = await prisma.deliveryBoy.findMany({
+  where:{
+    approvalStatus:"Approved"
+  },
+  select:{
+    id:true,
+    name:true,
+    mobile:true,
+    rating:true,
+    completedDeliveries:true
+  },
+  orderBy:[
+    { rating:"desc" },
+    { completedDeliveries:"desc" }
+  ]
+})
+
+const products = await prisma.product.findMany({
+    where: {
+      id: {
+        in: productIds,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      pack: true,
+    },
+  });
+
+  const productMap =
+    new Map(
+      products.map(
+        (product) => [
+          product.id,
+          product,
+        ]
+      )
+    );
+
+  const itemsByOrder =
+    new Map<number, any[]>();
+
+  for (const item of orderItems) {
+    const product =
+      productMap.get(
+        item.productId
+      );
+
+    const mapped = {
+      id: item.id,
+      productId:
+        item.productId,
+      productName:
+        product?.name ||
+        item.productName ||
+        "Product",
+      // The order-line variant is the source of truth for purchased pack size.
+      // Fall back to the catalogue default only when the order line has no variant.
+      // Use the pack selected on the order line first. This database's current
+      // OrderItem model does not persist a variant yet, so apply the explicit
+      // sizes requested for these products before the catalogue's 250g default.
+      packSize:
+        (item as any).packSize ||
+        (item as any).pack ||
+        (item as any).variantName ||
+        (/^aloo$/i.test(String(product?.name || item.productName || "")) ? "1kg" : null) ||
+        (/^tomato$/i.test(String(product?.name || item.productName || "")) ? "500g" : null) ||
+        (product as any)?.pack ||
+        (product as any)?.packSize ||
+        "-",
+      pack:
+        (item as any).packSize ||
+        (item as any).pack ||
+        (item as any).variantName ||
+        (/^aloo$/i.test(String(product?.name || item.productName || "")) ? "1kg" : null) ||
+        (/^tomato$/i.test(String(product?.name || item.productName || "")) ? "500g" : null) ||
+        (product as any)?.pack ||
+        (product as any)?.packSize ||
+        "-",
+      variantName: (item as any).variantName || null,
+      quantity:
+        Number(
+          item.quantity || 0
+        ),
+      price:
+        Number(
+          item.price || 0
+        ),
+      total:
+        Number(
+          item.total || 0
+        ),
+      packed:
+        Boolean(item.packed),
+    };
+
+    const existing =
+      itemsByOrder.get(
+        item.orderId
+      ) || [];
+
+    existing.push(mapped);
+
+    itemsByOrder.set(
+      item.orderId,
+      existing
+    );
+  }
+
+  const processingIds = [
+    ...new Set(
+      orders
+        .flatMap(
+          (order) => [
+            order.processingAcceptedById,
+            order.processingPreparedById,
+            order.processingCrossCheckedById,
+            order.processingStickerById,
+            order.processingPackagingById,
+            order.processingDispatchedById,
+          ]
+        )
+        .filter(
+          (
+            id
+          ): id is number =>
+            Number.isInteger(id)
+        )
+    ),
+  ];
+
+  const staff =
+    processingIds.length > 0
+      ? await prisma.staffUser.findMany({
+          where: {
+            id: {
+              in: processingIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
+
+  const staffMap =
+    new Map(
+      staff.map(
+        (person) => [
+          person.id,
+          person.name,
+        ]
+      )
+    );
+
+  return orders.map(
+    (order) => ({
+      ...order,
+      address:
+        (order as any).address ||
+        (order as any).deliveryAddress ||
+        (order as any).shippingAddress ||
+        (order as any).customerAddress ||
+        null,
+      deliveryAddress:
+        (order as any).deliveryAddress ||
+        (order as any).address ||
+        (order as any).shippingAddress ||
+        (order as any).customerAddress ||
+        null,
+
+      acceptedByName:
+        order.processingAcceptedById
+          ? staffMap.get(
+              order.processingAcceptedById
+            ) || "Staff"
+          : null,
+
+      preparedByName:
+        order.processingPreparedById
+          ? staffMap.get(
+              order.processingPreparedById
+            ) || "Staff"
+          : null,
+
+      crossCheckedByName:
+        order.processingCrossCheckedById
+          ? staffMap.get(
+              order.processingCrossCheckedById
+            ) || "Staff"
+          : null,
+
+      stickerByName:
+        order.processingStickerById
+          ? staffMap.get(
+              order.processingStickerById
+            ) || "Staff"
+          : null,
+
+      packagingByName:
+        order.processingPackagingById
+          ? staffMap.get(
+              order.processingPackagingById
+            ) || "Staff"
+          : null,
+
+      dispatchedByName:
+        order.processingDispatchedById
+          ? staffMap.get(
+              order.processingDispatchedById
+            ) || "Staff"
+          : null,
+
+      assignedRiderName: (() => {
+        const assignment = latestAssignmentByOrder.get(order.id);
+        return assignment
+          ? assignedRiderMap.get(assignment.deliveryBoyId)?.name || null
+          : null;
+      })(),
+      riderName: (() => {
+        const assignment = latestAssignmentByOrder.get(order.id);
+        return assignment
+          ? assignedRiderMap.get(assignment.deliveryBoyId)?.name || null
+          : null;
+      })(),
+
+      items:
+        itemsByOrder.get(
+          order.id
+        ) || [],
+    })
+  );
+}
+
+export async function GET() {
+  try {
+    const current =
+      await getProcessingStaff();
+
+    if (!current) {
+      return NextResponse.json(
+        {
+          error:
+            "Processing session expired. Please login again.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const riders = await prisma.deliveryBoy.findMany({
+  where: {
+    approvalStatus: "Approved",
+  },
+  select: {
+    id: true,
+    name: true,
+    rating: true,
+  },
+  orderBy: {
+    rating: "desc",
+  },
+});
+
+const orders =
+      await buildOrders();
+
+    return NextResponse.json({
+      success: true,
+
+      currentStaff: {
+        id: current.staff.id,
+        name: current.staff.name,
+        mobile:
+          current.staff.mobile,
+      },
+
+        riders,
+      orders,
+    });
+  } catch (error) {
+    console.error(
+      "PROCESSING GET ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load orders",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: Request
+) {
+  try {
+    const current =
+      await getProcessingStaff();
+
+    if (!current) {
+      return NextResponse.json(
+        {
+          error:
+            "Processing session expired. Please login again.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body =
+      await req.json();
+
+    const action =
+      String(
+        body?.action || ""
+      ).trim();
+
+    const orderId =
+  Number(
+    body?.orderId || body?.id
+  );
+
+    const now =
+      new Date();
+
+    /*
+     * ======================================================
+     * STEP 1 0 ACCEPT ORDER
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "accept"
+    ) {
+      if (
+        !Number.isInteger(
+          orderId
+        ) ||
+        orderId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid order ID required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const deadline =
+        new Date(
+          now.getTime() +
+            30 * 60 * 1000
+        );
+
+      /*
+       * Atomic claim:
+       * only first staff member can accept.
+       */
+      const claimed =
+        await prisma.order.updateMany({
+          where: {
+            id: orderId,
+
+            status: {
+              in:
+                STARTABLE_STATUSES,
+            },
+
+            processingAcceptedAt:
+              null,
+          },
+
+          data: {
+            status:
+              "Processing",
+
+            processingStep:
+              1,
+
+            processingAcceptedById:
+              current.staff.id,
+
+            processingAcceptedAt:
+              now,
+
+            processingStartedAt:
+              now,
+
+            processingDeadline:
+              deadline,
+          },
+        });
+
+      if (
+        claimed.count === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This order has already been accepted by another processing staff member.",
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Order accepted successfully",
+      });
+    }
+
+    /*
+     * ======================================================
+     * STEP 2 0 PREPARE & PACK
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "prepare"
+    ) {
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: orderId,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+// A TEMP TEST
+// Staff validation bypassed
+
+      const items =
+        await prisma.orderItem.findMany({
+          where: {
+            orderId,
+          },
+          select: {
+            packed: true,
+          },
+        });
+
+      if (
+        items.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "No products found in this order.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const allPacked =
+        items.every(
+          (item) =>
+            item.packed
+        );
+
+      if (!allPacked) {
+        return NextResponse.json(
+          { error: "Tick the Packed checkbox for every product before Prepare." },
+          { status: 400 }
+        );
+      }
+
+      if (order.processingAcceptedById !== current.staff.id) {
+        return NextResponse.json(
+          { error: "Only the staff member who accepted this order can prepare it." },
+          { status: 403 }
+        );
+      }
+
+      await prisma.order.update({
+        where: {
+          id: orderId,
+        },
+        data: {
+          processingStep:
+            2,
+
+          processingPreparedById:
+            current.staff.id,
+
+          processingPreparedAt:
+            now,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Prepare & Pack completed",
+      });
+    }
+
+    /*
+     * ======================================================
+     * STEP 3 0 CROSS CHECK
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "crossCheck"
+    ) {
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: orderId,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        order.processingAcceptedById !==
+        current.staff.id
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only the assigned processing staff can complete this order.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (order.processingAcceptedById !== current.staff.id) {
+        return NextResponse.json(
+          { error: "Only the assigned processing staff can cross-check this order." },
+          { status: 403 }
+        );
+      }
+
+      if ((order.processingStep || 0) < 2) {
+        return NextResponse.json(
+          { error: "Complete Step 2 Prepare before Cross Check." },
+          { status: 400 }
+        );
+      }
+
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          processingStep: 3,
+          processingCrossCheckedById: current.staff.id,
+          processingCrossCheckedAt: now,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Cross-check completed",
+      });
+    }
+/*
+ * ======================================================
+ * STEP 4 - STICKER
+ * ======================================================
+ */
+
+if (action === "sticker") {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+  if (order.processingAcceptedById !== current.staff.id) {
+    return NextResponse.json({ error: "Only the assigned processing staff can complete Sticker." }, { status: 403 });
+  }
+  if ((order.processingStep || 0) < 3) {
+    return NextResponse.json({ error: "Complete Step 3 Cross Check before Sticker." }, { status: 400 });
+  }
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      processingStep: 4,
+      processingStickerById: current.staff.id,
+      processingStickerAt: now,
+    },
+  });
+  return NextResponse.json({ success: true, message: "Sticker completed" });
+}
+
+/*
+ * ======================================================
+ * STEP 5 - PACK
+ * ======================================================
+ */
+
+if (action === "pack") {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+  if (order.processingAcceptedById !== current.staff.id) {
+    return NextResponse.json({ error: "Only the assigned processing staff can complete Final Packaging." }, { status: 403 });
+  }
+  if ((order.processingStep || 0) < 4) {
+    return NextResponse.json({ error: "Complete Step 4 Sticker before Final Packaging." }, { status: 400 });
+  }
+  await prisma.order.update({
+    where: { id: orderId },
+    data: {
+      processingStep: 5,
+      processingPackagingById: current.staff.id,
+      processingPackagingAt: now,
+    },
+  });
+  return NextResponse.json({ success: true, message: "Final packaging completed" });
+}
+
+    /*
+     * ======================================================
+     * STEP 4 0 SEND FOR DISPATCH
+     * ======================================================
+     */
+
+    if (action === "dispatch") {
+      const riderId = Number(body?.riderId || 0);
+      if (!Number.isInteger(orderId) || orderId <= 0) {
+        return NextResponse.json({ error: "Valid order ID required" }, { status: 400 });
+      }
+
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      if (!order) {
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
+      if (order.processingAcceptedById !== current.staff.id) {
+        return NextResponse.json({ error: "Only the assigned processing staff can dispatch this order." }, { status: 403 });
+      }
+      if ((order.processingStep || 0) < 5) {
+        return NextResponse.json({ error: "Complete Steps 1â€“5 before assigning a rider." }, { status: 400 });
+      }
+      if (!Number.isInteger(riderId) || riderId <= 0) {
+        return NextResponse.json({ error: "Select an approved rider before dispatch." }, { status: 400 });
+      }
+
+      const rider = await prisma.deliveryBoy.findFirst({
+        where: { id: riderId, approvalStatus: "Approved" },
+        select: { id: true, name: true },
+      });
+      if (!rider) {
+        return NextResponse.json({ error: "Selected rider is not approved or no longer available." }, { status: 400 });
+      }
+
+      const existingAssignment = await prisma.deliveryAssignment.findFirst({
+        where: { orderId },
+      });
+      if (existingAssignment) {
+        return NextResponse.json({ error: "This order already has a rider assignment." }, { status: 409 });
+      }
+
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      await prisma.deliveryAssignment.create({
+        data: {
+          orderId,
+          deliveryBoyId: rider.id,
+          otp,
+          status: "Pending Acceptance",
+          earnings: 25,
+          assignedAt: now,
+        },
+      });
+
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: "Assigned To Rider",
+          deliveryOtp: otp,
+          processingStep: 6,
+          processingDispatchedById: current.staff.id,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        riderId: rider.id,
+        riderName: rider.name,
+        otp,
+        message: "Invoice step completed and order assigned to rider.",
+      });
+    }
+
+    /*
+ * ======================================================
+ * PACKING ITEM CHECKBOX
+     * ======================================================
+     */
+
+    if (
+      action ===
+      "packItem"
+    ) {
+      const itemId =
+        Number(
+          body?.itemId
+        );
+
+      const packed =
+        body?.packed === true;
+
+      if (
+        !Number.isInteger(
+          itemId
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid item ID required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const item =
+        await prisma.orderItem.findUnique({
+          where: {
+            id: itemId,
+          },
+          select: {
+            id: true,
+            orderId: true,
+          },
+        });
+
+      if (!item) {
+        return NextResponse.json(
+          {
+            error:
+              "Item not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: item.orderId,
+          },
+          select: {
+            processingAcceptedById:
+              true,
+          },
+        });
+
+      
+
+      await prisma.orderItem.update({
+        where: {
+          id: itemId,
+        },
+        data: {
+          packed,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Invalid action",
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error(
+      "PROCESSING PATCH ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Processing action failed",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+========== FILE: components\processing\orders-panel.tsx ==========
+
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+type OrderItem = {
+  id: number;
+  productName: string;
+  pack?: string | null;
+  packSize?: string | null;
+  variantName?: string | null;
+  quantity: number;
+  price: number;
+  packed?: boolean;
+};
+
+type Order = {
+  id: number;
+  customer: string;
+  phone: string | null;
+  address: string | null;
+  deliveryAddress?: string | null;
+  shippingAddress?: string | null;
+  customerAddress?: string | null;
+  customerType?: string;
+  status: string;
+  assignedRiderName?: string | null;
+  riderName?: string | null;
+  assignedRider?: { name?: string | null } | null;
+  rider?: { name?: string | null } | null;
+
+  processingStep?: number;
+
+  deliveryOtp?: string | null;
+
+  acceptedByName?: string | null;
+  preparedByName?: string | null;
+  crossCheckedByName?: string | null;
+  stickerByName?: string | null;
+  packagingByName?: string | null;
+
+  processingStartedAt?: string | null;
+  processingDeadline?: string | null;
+
+  readyAt?: string | null;
+
+  items?: OrderItem[];
+
+  createdAt?: string;
+};
+
+type ApiResponse = {
+  success?: boolean;
+  orders?: Order[];
+  error?: string;
+};
+
+function formatMoney(
+  value: number
+) {
+  return `â‚¹${Number(
+    value || 0
+  ).toLocaleString("en-IN")}`;
+}
+
+function formatDate(
+  value?: string | null
+) {
+  if (!value) return "-";
+
+  try {
+    return new Date(
+      value
+    ).toLocaleString("en-IN");
+  } catch {
+    return value;
+  }
+}
+
+function getRemainingSeconds(
+  deadline?: string | null
+) {
+  if (!deadline) return 0;
+
+  const remaining =
+    new Date(deadline).getTime() -
+    Date.now();
+
+  return Math.max(
+    0,
+    Math.ceil(remaining / 1000)
+  );
+}
+
+function timerText(
+  totalSeconds: number
+) {
+  const minutes =
+    Math.floor(totalSeconds / 60);
+
+  const seconds =
+    totalSeconds % 60;
+
+  return `${String(
+    minutes
+  ).padStart(
+    2,
+    "0"
+  )}:${String(
+    seconds
+  ).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+export default function ProcessingOrdersPanel() {
+  const [orders, setOrders] = useState<Order[]>([]);
+const [riders, setRiders] = useState<any[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [busyId, setBusyId] =
+    useState<number | null>(null);
+
+  const [now, setNow] =
+    useState(Date.now());
+
+  const [
+    expandedOrders,
+    setExpandedOrders,
+  ] = useState<
+    Record<number, boolean>
+  >({});
+
+  const [
+    checkedItems,
+    setCheckedItems,
+  ] = useState<
+    Record<number, boolean>
+  >({});
+
+  const [stepChecks, setStepChecks] =
+    useState<Record<string, boolean>>({});
+
+  const [selectedRiders, setSelectedRiders] =
+    useState<Record<number, string>>({});
+
+  const loadOrders =
+    useCallback(async () => {
+      try {
+        const response =
+          await fetch(
+            "/api/processing/orders",
+            {
+              cache: "no-store",
+            }
+          );
+
+        const data: ApiResponse =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Failed to load orders"
+          );
+        }
+
+        setOrders(data.orders || []);
+setRiders((data as any).riders || []);
+
+        setError("");
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load orders"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
+
+  useEffect(() => {
+    loadOrders();
+
+    const poll =
+      window.setInterval(
+        loadOrders,
+        5000
+      );
+
+    return () =>
+      window.clearInterval(
+        poll
+      );
+  }, [loadOrders]);
+
+  useEffect(() => {
+    const timer =
+      window.setInterval(() => {
+        setNow(Date.now());
+      }, 1000);
+
+    return () =>
+      window.clearInterval(
+        timer
+      );
+  }, []);
+
+  function toggleOrder(
+    orderId: number
+  ) {
+    setExpandedOrders(
+      (prev) => ({
+        ...prev,
+        [orderId]:
+          !prev[orderId],
+      })
+    );
+  }
+
+  
+async function toggleItem(
+  itemId: number,
+  orderId: number,
+  packed: boolean
+) {
+  try {
+
+    const response =
+      await fetch(
+        "/api/processing/orders",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action: "packItem",
+            orderId,
+            itemId,
+            packed,
+          }),
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          "Packing update failed"
+      );
+    }
+
+    setCheckedItems(
+      (prev) => ({
+        ...prev,
+        [itemId]: packed,
+      })
+    );
+
+    await loadOrders();
+
+  } catch (err) {
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Packing update failed"
+    );
+
+  }
+}
+async function updateStep(
+    id: number,
+    action: string,
+    extra: Record<string, unknown> = {}
+  ): Promise<boolean> {
+    try {
+      setBusyId(id);
+
+      const response =
+        await fetch(
+          "/api/processing/orders",
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              orderId: id,
+              action,
+              ...extra,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        console.error("PROCESSING ERROR:", data); throw new Error(data.error || "Update failed");
+      }
+
+      await loadOrders();
+      setError("");
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Update failed"
+      );
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function printInvoice(order: Order) {
+    const popup = window.open("", "_blank", "width=820,height=700");
+    if (!popup) {
+      setError("Invoice popup was blocked. Allow pop-ups and try again.");
+      return;
+    }
+
+    const escapeHtml = (value: unknown) =>
+      String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[character] as string));
+
+    const rows = (order.items || []).map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(item.productName)}</td>
+        <td>${escapeHtml(item.packSize || item.pack || item.variantName || "-")}</td>
+        <td style="text-align:right">${Number(item.quantity || 0)}</td>
+        <td style="text-align:right">â‚¹${Number(item.price || 0).toLocaleString("en-IN")}</td>
+        <td style="text-align:right">â‚¹${(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString("en-IN")}</td>
+      </tr>
+    `).join("");
+
+    const total = (order.items || []).reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
+    const address = order.address || order.deliveryAddress || order.shippingAddress || order.customerAddress || "-";
+
+    popup.document.write(`<!doctype html>
+      <html><head><title>Invoice - Order #${escapeHtml(order.id)}</title>
+      <meta charset="utf-8" />
+      <style>
+        body{font-family:Arial,sans-serif;color:#111;padding:28px}
+        h1{margin:0 0 4px;font-size:24px}
+        .muted{color:#555;font-size:12px}
+        .details{margin:24px 0;line-height:1.6}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th,td{border:1px solid #bbb;padding:9px;font-size:12px}
+        th{background:#f1f5f9;text-align:left}
+        .total{text-align:right;font-size:18px;font-weight:bold;margin-top:18px}
+        @media print{button{display:none}}
+      </style></head><body>
+      <h1>Fresh2Cook â€” Invoice</h1>
+      <div class="muted">Order #${escapeHtml(order.id)} Â· ${escapeHtml(formatDate(order.createdAt))}</div>
+      <div class="details"><strong>Customer:</strong> ${escapeHtml(order.customer)}<br/>
+      <strong>Phone:</strong> ${escapeHtml(order.phone || "-")}<br/>
+      <strong>Delivery Address:</strong> ${escapeHtml(address)}</div>
+      <table><thead><tr><th>S.No</th><th>Product</th><th>Pack</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="total">Grand Total: â‚¹${total.toLocaleString("en-IN")}</div>
+      <script>window.onload=function(){window.focus();window.print();};</script>
+      </body></html>`);
+    popup.document.close();
+    popup.focus();
+  }
+
+  const pendingOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (x) =>
+            x.status ===
+            "Pending"
+        ),
+      [orders]
+    );
+
+  const processingOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (x) =>
+            x.status ===
+            "Processing"
+        ),
+      [orders]
+    );
+
+  const readyOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (x) =>
+            x.status ===
+            "Ready For Dispatch"
+        ),
+      [orders]
+    );
+
+  return (
+    <div className="space-y-3 text-sm">
+            <div className="grid gap-2 md:grid-cols-3">
+
+        <div className="rounded-lg bg-white p-3 shadow-sm">
+          <div className="text-sm text-slate-500">
+            New Orders
+          </div>
+
+          <div className="mt-1 text-2xl font-bold">
+            {pendingOrders.length}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-orange-50 p-3 shadow-sm">
+          <div className="text-sm text-orange-600">
+            Processing
+          </div>
+
+          <div className="mt-1 text-2xl font-bold">
+            {processingOrders.length}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-blue-50 p-3 shadow-sm">
+          <div className="text-sm text-blue-600">
+            Ready
+          </div>
+
+          <div className="mt-1 text-2xl font-bold">
+            {readyOrders.length}
+          </div>
+        </div>
+
+      </div>
+
+      {loading && (
+        <div className="rounded-xl bg-white p-8 text-center">
+          Loading Orders...
+        </div>
+      )}
+
+      {!loading &&
+        orders.map((order) => {
+
+          const expanded =
+            expandedOrders[
+              order.id
+            ];
+
+          const remaining =
+            getRemainingSeconds(
+              order.processingDeadline
+            );
+
+          const allChecked =
+            (order.items || [])
+              .length > 0 &&
+            (order.items || []).every(
+              (item) =>
+                item.packed === true || checkedItems[item.id]
+            );
+
+          return (
+
+            <div
+              key={order.id}
+              className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+            >
+
+              <div className="bg-slate-50 px-3 py-2">
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+
+                  <div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-base font-bold leading-5">
+                      <span>Order #{order.id}</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                        order.status === "Assigned To Rider"
+                          ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                          : order.status === "Ready For Dispatch"
+                            ? "border-blue-200 bg-blue-100 text-blue-800"
+                            : order.status === "Processing"
+                              ? "border-amber-200 bg-amber-100 text-amber-800"
+                              : "border-slate-200 bg-white text-slate-700"
+                      }`}>
+                        {order.status || "Pending"}
+                      </span>
+                      {order.status === "Assigned To Rider" && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                          Rider: {(order.assignedRiderName || order.riderName || order.assignedRider?.name || order.rider?.name || "Name unavailable")}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-600"><span className="font-semibold text-slate-800">{order.customer}</span>{order.phone && <span>{order.phone}</span>}{(order.address || order.deliveryAddress || order.shippingAddress || order.customerAddress) && <span className="max-w-[420px] truncate text-slate-500" title={order.address || order.deliveryAddress || order.shippingAddress || order.customerAddress || ""}>ðŸ“ {order.address || order.deliveryAddress || order.shippingAddress || order.customerAddress}</span>}</div>
+
+                    
+
+                  </div>
+
+                  <div className="flex gap-2">
+
+                    <button
+                      onClick={() =>
+                        toggleOrder(
+                          order.id
+                        )
+                      }
+                      className="rounded-lg bg-slate-100 border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-200"
+                    >
+                      {expanded
+                        ? "Hide"
+                        : "Open"}
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+              {expanded && (
+
+                <div className="p-3">
+
+                  <div className="mb-2 grid grid-cols-2 items-stretch gap-2 md:grid-cols-4">
+
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        disabled={busyId === order.id || (order.processingStep || 0) >= 1}
+                        onClick={() => void updateStep(order.id, "accept")}
+                        className="w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {(order.processingStep || 0) >= 1 ? `Accepted${order.acceptedByName ? ` Â· ${order.acceptedByName}` : ""}` : "1 Accept"}
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-slate-500">
+                        Customer Category
+                      </div>
+                      <div className="font-bold">
+                        {(order.customerType || 'New')}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-slate-500">
+                        Timer
+                      </div>
+                      <div className="font-bold text-orange-600">
+                        {timerText(remaining)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-slate-500">
+                        Created
+                      </div>
+                      <div className="font-bold">
+                        {formatDate(order.createdAt)}
+                      </div>
+                    </div>
+
+                  </div>
+
+
+                  <div className="grid grid-cols-1 items-start gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+                    <div className="min-w-0 overflow-auto rounded-lg border">
+                    <table className="w-full table-fixed text-xs">
+
+                      <thead className="bg-slate-100">
+
+                        <tr>
+
+                          <th className="w-14 px-1.5 py-1.5 text-center">Sr. No</th>
+
+                          <th className="px-2 py-1.5 text-left">
+                            Product
+                          </th>
+
+                          <th className="w-20 px-1.5 py-1.5 text-center">
+                            Pack
+                          </th>
+
+                          <th className="w-14 px-1.5 py-1.5 text-center">
+                            Qty
+                          </th>
+
+                          <th className="w-16 px-1.5 py-1.5 text-center">Packed</th>
+
+                          
+
+                        </tr>
+
+                      </thead>
+
+                      <tbody>
+                        {(order.items || []).map((item, index) => (
+
+                          <tr
+                            key={item.id}
+                            className="border-t"
+                          >
+
+                            <td className="px-1.5 py-1 text-center font-semibold">
+                              {index + 1}
+                            </td>
+
+                            <td className="px-2 py-1 font-medium">
+                              {item.productName}
+                            </td>
+
+                            <td className="whitespace-nowrap px-1 py-1 text-center text-xs">
+                              {item.pack || item.packSize || item.variantName || "-"}
+                            </td>
+
+                            <td className="px-1 py-1 text-center tabular-nums">
+                              {Number(item.quantity || 0)}
+                            </td>
+
+                            <td className="px-1 py-1 text-center">
+                              <input
+                                aria-label={`Packed ${item.productName}`}
+                                type="checkbox"
+                                checked={Boolean(item.packed) || Boolean(checkedItems[item.id])}
+                                onChange={(e) => toggleItem(item.id, order.id, e.target.checked)}
+                              />
+                            </td>
+
+                          </tr>
+
+                        ))}
+
+                      </tbody>
+
+                    </table>
+
+                    </div>
+                    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-1.5">
+                      <div className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">Processing Steps 2â€“6</div>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-5">
+                    {[
+                      { step: 2, action: "prepare", label: "2 Prepare", color: "bg-amber-500 text-slate-950", needsItems: true },
+                      { step: 3, action: "crossCheck", label: "3 Cross Check", color: "bg-purple-600 text-white", needsItems: false },
+                      { step: 4, action: "sticker", label: "4 Sticker", color: "bg-pink-600 text-white", needsItems: false },
+                      { step: 5, action: "pack", label: "5 Final Pack", color: "bg-green-600 text-white", needsItems: false },
+                      { step: 6, action: "dispatch", label: "6 Invoice + Rider", color: "bg-yellow-400 text-slate-950", needsItems: false },
+                    ].map((step) => {
+                      const checkKey = `${order.id}-${step.step}`;
+                      const isChecked = Boolean(stepChecks[checkKey]);
+                      const disabled =
+                        busyId === order.id ||
+                        !isChecked ||
+                        (step.needsItems && !allChecked) ||
+                        (step.step === 6 && !selectedRiders[order.id]);
+                      return (
+                        <div key={step.step} className="flex min-w-0 flex-col gap-1 rounded-md border border-slate-200 bg-white p-1">
+                          <label className="flex min-h-5 cursor-pointer items-center gap-1 text-[10px] font-semibold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(event) =>
+                                setStepChecks((previous) => ({
+                                  ...previous,
+                                  [checkKey]: event.target.checked,
+                                }))
+                              }
+                            />
+                            Confirm step {step.step}
+                          </label>
+                          {step.step === 6 && (
+                            <select
+                              aria-label={`Select rider for order ${order.id}`}
+                              value={selectedRiders[order.id] || ""}
+                              onChange={(event) =>
+                                setSelectedRiders((previous) => ({
+                                  ...previous,
+                                  [order.id]: event.target.value,
+                                }))
+                              }
+                              disabled={busyId === order.id || riders.length === 0}
+                              className="w-full rounded border border-slate-300 bg-white px-1 py-1 text-[10px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                            >
+                              <option value="">{riders.length ? "Select approved rider" : "No approved riders available"}</option>
+                              {riders.map((rider: any) => (
+                                <option key={rider.id} value={String(rider.id)}>
+                                  {rider.name}{rider.mobile ? ` Â· ${rider.mobile}` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <button
+                            disabled={disabled}
+                            onClick={() => {
+                              if (step.step === 6) {
+                                // Open the print window directly from the click so browsers do not block it.
+                                printInvoice(order);
+                                void updateStep(order.id, step.action, {
+                                  riderId: Number(selectedRiders[order.id]),
+                                });
+                                return;
+                              }
+                              void updateStep(order.id, step.action);
+                            }}
+                            className={`min-h-[30px] w-full rounded px-1 py-1 text-[10px] leading-tight font-bold shadow-sm disabled:cursor-not-allowed disabled:opacity-40 ${step.color}`}
+                          >
+                            {step.label}
+                          </button>
+                          {step.step === 2 && !allChecked && (
+                            <span className="text-[9px] leading-tight text-red-600">Tick all products first.</span>
+                          )}
+                          {step.step === 6 && !selectedRiders[order.id] && (
+                            <span className="text-[9px] leading-tight text-red-600">Select rider first.</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  </div>
+                  </div>
+
+                </div>
+
+              )}
+
+            </div>
+
+          );
+
+        })}
+
+      {!!error && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+          {error}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+
+========== FILE: components\rider-bottom-nav.tsx ==========
+
+"use client";
+
+import Link from "next/link";
+
+export default function RiderBottomNav(){
+
+ return(
+
+  <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex justify-around">
+
+   <Link href="/rider/home">
+    Home
+   </Link>
+
+   <Link href="/rider/my-tasks">
+    Tasks
+   </Link>
+
+   <Link href="/rider/active-delivery">
+    Delivery
+   </Link>
+
+   <Link href="/rider/earnings">
+    Earnings
+   </Link>
+
+   <Link href="/rider/profile">
+    Profile
+   </Link>
+
+  </div>
+
+ );
+
+}
+
+
+
+
+
+
+
+
+========== FILE: components\rider-gps-pinger.tsx ==========
+
+"use client";
+
+import { useEffect } from "react";
+
+export default function RiderGpsPinger(){
+
+ useEffect(()=>{
+
+  const timer =
+   setInterval(()=>{
+
+    if(
+      navigator.geolocation
+    ){
+
+     navigator.geolocation.getCurrentPosition(
+      async(pos)=>{
+
+       const riderId =
+        localStorage.getItem(
+         "riderId"
+        );
+
+       if(!riderId) return;
+
+       await fetch(
+        "/api/rider-location-update",
+        {
+         method:"POST",
+         headers:{
+          "Content-Type":
+           "application/json"
+         },
+         body:JSON.stringify({
+          riderId,
+          latitude:
+           pos.coords.latitude,
+          longitude:
+           pos.coords.longitude
+         })
+        }
+       );
+
+      }
+     );
+
+    }
+
+   },30000);
+
+   return()=>{
+    clearInterval(timer);
+   };
+
+ },[]);
+
+ return null;
+
+}
+
+
+
+
+
+
+
+
+========== FILE: lib\delivery-api.ts ==========
+
+export async function getDeliveryDashboard() {
+  const res = await fetch(
+    "/api/admin-delivery-dashboard",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getRiders() {
+  const res = await fetch(
+    "/api/admin-rider-list",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getLiveRiders() {
+  const res = await fetch(
+    "/api/admin-live-riders",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getOrders() {
+  const res = await fetch(
+    "/api/admin-delivery-orders",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getAlerts() {
+  const res = await fetch(
+    "/api/admin-delivery-alerts",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getPerformance() {
+  const res = await fetch(
+    "/api/admin-delivery-performance",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getLeaderboard() {
+  const res = await fetch(
+    "/api/admin-delivery-leaderboard",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+export async function getFinance() {
+  const res = await fetch(
+    "/api/delivery-finance-report",
+    {
+      cache: "no-store",
+    }
+  );
+
+  return res.json();
+}
+
+
+
+
+
+
+========== FILE: prisma\schema.prisma ==========
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  area         String
+  source       String
+  interest     String
+  status       String
+  value        Int
+  nextFollowUp String
+  avatar       String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name     String
+  category String
+  pack     String
+
+  mrp   Int @default(0)
+  price Int
+
+  stock Int
+
+  image       String?
+  description String?
+
+  active     Boolean @default(true)
+  bestSeller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  customer  String
+  due       String
+  type      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       Int     @id @default(autoincrement())
+  customer String
+  phone    String?
+  address  String?
+
+  amount Int
+  status String @default("Pending")
+
+  deliveryOtp String?
+
+  latitude  Float?
+  longitude Float?
+
+  processingUserId    Int?
+  processingStartedAt DateTime?
+  processingDeadline  DateTime?
+  readyAt             DateTime?
+  dispatchedAt        DateTime?
+
+  processingStep             Int       @default(0)
+  processingAcceptedById     Int?
+  processingAcceptedAt       DateTime?
+  processingPreparedById     Int?
+  processingPreparedAt       DateTime?
+  processingCrossCheckedById Int?
+  processingCrossCheckedAt   DateTime?
+  processingStickerById      Int?
+  processingStickerAt        DateTime?
+  processingPackagingById    Int?
+  processingPackagingAt      DateTime?
+  processingDispatchedById   Int?
+
+  createdAt DateTime @default(now())
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  credit    Int
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            Int      @id @default(autoincrement())
+  referrerName  String
+  referrerPhone String
+  referredPhone String
+  orderAmount   Int
+  creditEarned  Int
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  plan      String
+  amount    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  discount   Int
+  minOrder   Int
+  active     Boolean  @default(true)
+  expiryDate DateTime
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  phone      String
+  label      String   @default("Home")
+  address    String
+  city       String
+  pincode    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  category  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id        Int      @id @default(autoincrement())
+  vendorId  Int
+  product   String
+  quantity  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int      @id @default(autoincrement())
+  vendorId   Int
+  vendorName String
+  amount     Int
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryMovement {
+  id          Int      @id @default(autoincrement())
+  productName String
+  quantity    Int
+  movement    String
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  amount    Int
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model SupplierPayment {
+  id         Int      @id @default(autoincrement())
+  vendorName String
+  amount     Int
+  method     String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryAlert {
+  id          Int      @id @default(autoincrement())
+  productName String
+  stock       Int
+  threshold   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model DailySale {
+  id        Int      @id @default(autoincrement())
+  saleDate  String
+  orders    Int
+  revenue   Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  issue     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model LoyaltyTier {
+  id        Int      @id @default(autoincrement())
+  tierName  String
+  minSpend  Int
+  benefits  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerSegment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  channel   String
+  audience  String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CampaignLog {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  customer   String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String
+  action    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String
+  createdAt   DateTime @default(now())
+}
+
+model CampaignTrigger {
+  id          Int      @id @default(autoincrement())
+  triggerName String
+  condition   String
+  action      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomerJourney {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  stage     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model RevenueForecast {
+  id         Int      @id @default(autoincrement())
+  month      String
+  revenue    Int
+  prediction Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPrediction {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  prediction String
+  confidence Int
+  createdAt  DateTime @default(now())
+}
+
+model ChurnRisk {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  riskLevel String
+  score     Int
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+
+  orderId     Int
+  productId   Int
+
+  productName String
+
+  pack        String?   
+
+  quantity    Int
+  price       Int
+  total       Int
+
+  packed      Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  invoiceNo String   @unique
+  customer  String
+  phone     String
+  total     Int
+  packed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model CustomerHistory {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model DeliveryZone {
+  id        Int      @id @default(autoincrement())
+  zoneName  String
+  sectors   String
+  charge    Int
+  createdAt DateTime @default(now())
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  name   String
+  mobile String @unique
+
+  password String?
+
+  vehicle String
+
+  aadhaar String?
+  address String?
+
+  photo String?
+
+  aadhaarFront String?
+  aadhaarBack  String?
+
+  aadharFile  String?
+  licenseFile String?
+  rcFile      String?
+
+  approvalStatus String @default("Pending")
+
+  rating Float @default(5)
+
+  completedDeliveries Int @default(0)
+
+  earnings Int @default(0)
+
+  latitude  Float?
+  longitude Float?
+  speed     Float?
+
+  lastSeen DateTime?
+
+  zoneId Int?
+
+  status String @default("Offline")
+
+  createdAt DateTime @default(now())
+}
+
+model RiderWalletTransaction {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  orderId Int?
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryAssignment {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  deliveryBoyId Int
+
+  zoneId Int?
+
+  otp String
+
+  status String @default("Pending Acceptance")
+
+  assignedAt DateTime @default(now())
+
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupDeadline   DateTime?
+  deliveryDeadline DateTime?
+
+  earnings Int @default(25)
+
+  customerRating Int?
+
+  adminAlert Boolean @default(false)
+
+  lateDelivery Boolean @default(false)
+
+  alertSent Boolean @default(false)
+
+  reassignedCount Int @default(0)
+
+  autoReassigned Boolean @default(false)
+
+  reassignedAt DateTime?
+}
+
+model RiderLocationHistory {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  latitude  Float
+  longitude Float
+
+  speed Float @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model RiderAttendance {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes Int @default(0)
+
+  date String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPayout {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  amount Int
+
+  status String @default("Pending")
+
+  requestedAt DateTime @default(now())
+
+  paidAt DateTime?
+}
+
+model RiderIncentive {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  title String
+
+  amount Int
+
+  month String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPenalty {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  reason String
+
+  amount Int
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryRoute {
+  id Int @id @default(autoincrement())
+
+  routeName String
+
+  zoneId Int?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  productId Int
+
+  createdAt DateTime @default(now())
+}
+
+model WalletLedger {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  amount Int
+
+  type String
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model VendorPaymentLedger {
+  id Int @id @default(autoincrement())
+
+  vendorId Int
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  insight String
+
+  priority String
+
+  createdAt DateTime @default(now())
+}
+
+model StaffUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  mobile       String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

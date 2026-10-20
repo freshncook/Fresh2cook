@@ -1,0 +1,91 @@
+﻿"use client";
+
+import { useState } from "react";
+
+export default function Page(){
+
+ const [mobile,setMobile] =
+  useState("");
+
+ const [result,setResult] =
+  useState("");
+
+ async function login(){
+
+  const res =
+   await fetch(
+    "/api/rider-login",
+    {
+     method:"POST",
+     headers:{
+      "Content-Type":
+       "application/json"
+     },
+     body:JSON.stringify({
+      mobile
+     })
+    }
+   );
+
+  const data =
+   await res.json();
+
+  if(data.success){
+
+   localStorage.setItem(
+    "riderId",
+    String(data.rider.id)
+   );
+
+   setResult(
+    "Login Success"
+   );
+
+  }else{
+
+   setResult(
+    data.message
+   );
+
+  }
+
+ }
+
+ return(
+
+  <div className="max-w-md mx-auto p-6">
+
+   <h1 className="text-3xl font-bold mb-6">
+    Rider Login
+   </h1>
+
+   <input
+    className="border p-3 w-full rounded"
+    placeholder="Mobile Number"
+    value={mobile}
+    onChange={(e)=>
+     setMobile(e.target.value)
+    }
+   />
+
+   <button
+    onClick={login}
+    className="w-full mt-4 bg-green-600 text-white p-3 rounded"
+   >
+    Login
+   </button>
+
+   <div className="mt-4">
+    {result}
+   </div>
+
+  </div>
+
+ );
+
+}
+
+
+
+
+

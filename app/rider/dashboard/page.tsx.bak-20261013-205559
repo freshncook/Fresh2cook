@@ -1,0 +1,150 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+export default function Page() {
+
+  const [data,setData] = useState<any>(null);
+  const [loading,setLoading] = useState(true);
+
+  async function loadData() {
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/rider-dashboard",
+          {
+            cache:"no-store"
+          }
+        );
+
+      const json =
+        await res.json();
+
+      setData(json);
+
+    } catch {
+
+      setData(null);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+  useEffect(()=>{
+    loadData();
+  },[]);
+
+  const stats = useMemo(()=>({
+
+    assigned:
+      data?.assignedOrders || 0,
+
+    active:
+      data?.activeDeliveries || 0,
+
+    delivered:
+      data?.deliveredToday || 0,
+
+    earnings:
+      data?.todayEarnings || 0
+
+  }),[data]);
+
+  return (
+
+    <div className="min-h-screen bg-slate-50 p-4">
+
+      <div className="mb-4">
+
+        <h1 className="text-2xl font-bold">
+          Rider Dashboard
+        </h1>
+
+        <p className="text-sm text-slate-500">
+          Fresh2Cook Delivery Operations
+        </p>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Assigned
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.assigned}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Active
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.active}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Delivered
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.delivered}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Earnings
+          </div>
+          <div className="text-2xl font-bold">
+            ?{stats.earnings}
+          </div>
+        </div>
+
+      </div>
+
+      <div className="grid gap-3">
+
+        <a href="/rider/pickup-order" className="bg-white border rounded-xl p-4 font-medium">
+          Pickup Orders
+        </a>
+
+        <a href="/rider/active-delivery" className="bg-white border rounded-xl p-4 font-medium">
+          Active Deliveries
+        </a>
+
+        <a href="/rider/otp-verify" className="bg-white border rounded-xl p-4 font-medium">
+          Verify OTP
+        </a>
+
+        <a href="/rider/complete-delivery" className="bg-white border rounded-xl p-4 font-medium">
+          Complete Delivery
+        </a>
+
+        <a href="/rider/wallet" className="bg-white border rounded-xl p-4 font-medium">
+          Wallet
+        </a>
+
+        <a href="/rider/performance" className="bg-white border rounded-xl p-4 font-medium">
+          Performance
+        </a>
+
+      </div>
+
+      {loading && (
+        <div className="mt-4 text-sm text-slate-500">
+          Loading...
+        </div>
+      )}
+
+    </div>
+  );
+}

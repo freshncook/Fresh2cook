@@ -1,0 +1,966 @@
+﻿
+========== FILE: app\api\delivery-accept\route.ts ==========
+
+
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+function getAuthenticatedRiderId(req: NextRequest): number | null {
+  const token = req.cookies.get("f2c_rider_session")?.value;
+  const secret = process.env.RIDER_SESSION_SECRET;
+
+  if (!token || !secret || secret.length < 32) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+
+  try {
+    const expected = createHmac("sha256", secret)
+      .update(parts[0])
+      .digest();
+
+    const supplied = Buffer.from(parts[1], "base64url");
+
+    if (
+      supplied.length !== expected.length ||
+      !timingSafeEqual(supplied, expected)
+    ) {
+      return null;
+    }
+
+    const payload = JSON.parse(
+      Buffer.from(parts[0], "base64url").toString("utf8")
+    );
+
+    if (
+      !Number.isInteger(payload.riderId) ||
+      !Number.isFinite(payload.exp) ||
+      payload.exp <= Date.now()
+    ) {
+      return null;
+    }
+
+    return payload.riderId;
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const riderId = getAuthenticatedRiderId(req);
+
+    if (!riderId) {
+      return NextResponse.json(
+        { success: false, error: "Please log in again" },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const assignmentId = Number(body.assignmentId);
+    const action = body.action;
+
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Valid assignment ID required" },
+        { status: 400 }
+      );
+    }
+
+    if (!["accept", "reject"].includes(action)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid action" },
+        { status: 400 }
+      );
+    }
+
+    const rider = await prisma.deliveryBoy.findUnique({
+      where: { id: riderId },
+      select: { id: true, approvalStatus: true },
+    });
+
+    if (!rider || rider.approvalStatus !== "Approved") {
+      return NextResponse.json(
+        { success: false, error: "Rider is not approved" },
+        { status: 403 }
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const assignment = await tx.deliveryAssignment.findUnique({
+        where: { id: assignmentId },
+      });
+
+      if (!assignment) {
+        return { error: "Assignment not found", status: 404 };
+      }
+
+      if (assignment.deliveryBoyId !== riderId) {
+        return { error: "This order is not assigned to you", status: 403 };
+      }
+
+      if (assignment.status !== "Pending Acceptance") {
+        return {
+          error: "This assignment has already been processed",
+          status: 409,
+        };
+      }
+
+      const updatedCount = await tx.deliveryAssignment.updateMany({
+        where: {
+          id: assignmentId,
+          deliveryBoyId: riderId,
+          status: "Pending Acceptance",
+        },
+        data:
+          action === "accept"
+            ? { status: "Accepted", acceptedAt: new Date() }
+            : { status: "Rejected" },
+      });
+
+      if (updatedCount.count !== 1) {
+        return { error: "Assignment changed. Refresh and try again.", status: 409 };
+      }
+
+      if (action === "accept") {
+        await tx.deliveryBoy.update({
+          where: { id: riderId },
+          data: { status: "Busy" },
+        });
+      } else {
+        const otherActive = await tx.deliveryAssignment.count({
+          where: {
+            deliveryBoyId: riderId,
+            id: { not: assignmentId },
+            status: {
+              in: ["Pending Acceptance", "Accepted", "Picked Up", "Out For Delivery"],
+            },
+          },
+        });
+
+        await tx.deliveryBoy.update({
+          where: { id: riderId },
+          data: { status: otherActive > 0 ? "Busy" : "Available" },
+        });
+      }
+
+      return {
+        success: true,
+        message: action === "accept" ? "Order Accepted" : "Order Rejected",
+      };
+    });
+
+    if ("error" in result) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: result.status }
+      );
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("DELIVERY ACCEPT ERROR:", error);
+
+    return NextResponse.json(
+      { success: false, error: "Failed to process request" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== MISSING FILE: app\api\rider-send-otp\route.ts ==========
+
+
+========== FILE: app\rider\verify-otp\page.tsx ==========
+
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function Page() {
+  const [assignmentId, setAssignmentId] = useState("");
+  const [otp, setOtp] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("assignmentId");
+
+    if (id) {
+      setAssignmentId(id);
+    }
+  }, []);
+
+  async function sendOtp() {
+    if (!assignmentId) {
+      setMessage("Assignment ID required");
+      return;
+    }
+
+    setResending(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-start-delivery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignmentId: Number(assignmentId),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMessage(data.error || "OTP Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“Ã Â¤Â¾ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Å“Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤â€¢Ã Â¤Â¾");
+        return;
+      }
+
+      setMessage(
+        "Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ OTP customer Ã Â¤â€¢Ã Â¥â€¹ Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“ Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤â€”Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Ë†Ã Â¥Â¤ Customer Ã Â¤Â¸Ã Â¥â€¡ OTP Ã Â¤Â²Ã Â¥â€¡Ã Â¤â€¢Ã Â¤Â° Ã Â¤Â¨Ã Â¥â‚¬Ã Â¤Å¡Ã Â¥â€¡ Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â²Ã Â¥â€¡Ã Â¤â€šÃ Â¥Â¤"
+      );
+    } catch {
+      setMessage("OTP Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“Ã Â¤Â¨Ã Â¥â€¡ Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  async function verifyOtp() {
+    if (!assignmentId || !otp) {
+      setMessage("OTP Ã Â¤Â¡Ã Â¤Â¾Ã Â¤Â²Ã Â¤Â¨Ã Â¤Â¾ Ã Â¤Å“Ã Â¤Â°Ã Â¥â€šÃ Â¤Â°Ã Â¥â‚¬ Ã Â¤Â¹Ã Â¥Ë†");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-complete-delivery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignmentId: Number(assignmentId),
+          otp,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMessage(data.error || "Invalid OTP");
+        return;
+      }
+
+      setMessage(
+        "Delivery Completed Ã¢Å“â€¦ Ã¢â€šÂ¹25 earning added."
+      );
+    } catch {
+      setMessage("Delivery complete Ã Â¤â€¢Ã Â¤Â°Ã Â¤Â¨Ã Â¥â€¡ Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 max-w-xl mx-auto">
+
+      <h1 className="text-3xl font-bold mb-2">
+        Delivery OTP
+      </h1>
+
+      <p className="text-gray-600 mb-6">
+        Customer Ã Â¤Â¸Ã Â¥â€¡ OTP Ã Â¤Â²Ã Â¥â€¡Ã Â¤â€¢Ã Â¤Â° delivery complete Ã Â¤â€¢Ã Â¤Â°Ã Â¥â€¡Ã Â¤â€šÃ Â¥Â¤
+      </p>
+
+      <div className="bg-white rounded-2xl shadow p-5">
+
+        <label className="block text-sm font-semibold mb-2">
+          Assignment ID
+        </label>
+
+        <input
+          className="border p-3 rounded-xl w-full mb-4"
+          value={assignmentId}
+          onChange={(e) => setAssignmentId(e.target.value)}
+          placeholder="Assignment ID"
+        />
+
+        <button
+          onClick={sendOtp}
+          disabled={resending}
+          className="w-full bg-orange-600 text-white p-3 rounded-xl font-semibold disabled:opacity-50"
+        >
+          {resending
+            ? "Sending..."
+            : "Send / Resend OTP to Customer"}
+        </button>
+
+        <div className="my-5 border-t" />
+
+        <label className="block text-sm font-semibold mb-2">
+          Customer OTP
+        </label>
+
+        <input
+          value={otp}
+          onChange={(e) =>
+            setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
+          }
+          placeholder="Enter 4 Digit OTP"
+          inputMode="numeric"
+          maxLength={4}
+          className="border p-3 w-full rounded-xl text-center text-2xl tracking-[0.5em]"
+        />
+
+        <button
+          onClick={verifyOtp}
+          disabled={loading}
+          className="mt-4 w-full bg-green-600 text-white p-3 rounded-xl font-semibold disabled:opacity-50"
+        >
+          {loading ? "Verifying..." : "Verify OTP & Complete Delivery"}
+        </button>
+
+        {message && (
+          <div className="mt-5 bg-gray-50 border rounded-xl p-4 text-sm">
+            {message}
+          </div>
+        )}
+
+      </div>
+
+      <div className="mt-5 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm">
+        <b>Ã Â¤Â§Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾Ã Â¤Â¨ Ã Â¤Â¦Ã Â¥â€¡Ã Â¤â€š:</b> Rider Ã Â¤â€¢Ã Â¥â€¹ OTP screen Ã Â¤ÂªÃ Â¤Â° OTP Ã Â¤Â¦Ã Â¤Â¿Ã Â¤â€“Ã Â¤Â¾Ã Â¤Ë† Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Å“Ã Â¤Â¾Ã Â¤ÂÃ Â¤â€”Ã Â¤Â¾Ã Â¥Â¤
+        OTP Ã Â¤â€¢Ã Â¥â€¡Ã Â¤ÂµÃ Â¤Â² customer Ã Â¤â€¢Ã Â¥â€¹ Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“Ã Â¤Â¾ Ã Â¤Å“Ã Â¤Â¾Ã Â¤ÂÃ Â¤â€”Ã Â¤Â¾Ã Â¥Â¤
+      </div>
+
+    </div>
+  );
+}
+
+
+
+
+
+
+========== FILE: app\rider\dashboard\page.tsx ==========
+
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+export default function Page() {
+
+  const [data,setData] = useState<any>(null);
+  const [loading,setLoading] = useState(true);
+
+  async function loadData() {
+
+    try {
+
+      const res =
+        await fetch(
+          "/api/rider-dashboard",
+          {
+            cache:"no-store"
+          }
+        );
+
+      const json =
+        await res.json();
+
+      setData(json);
+
+    } catch {
+
+      setData(null);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+  useEffect(()=>{
+    loadData();
+  },[]);
+
+  const stats = useMemo(()=>({
+
+    assigned:
+      data?.assignedOrders || 0,
+
+    active:
+      data?.activeDeliveries || 0,
+
+    delivered:
+      data?.deliveredToday || 0,
+
+    earnings:
+      data?.todayEarnings || 0
+
+  }),[data]);
+
+  return (
+
+    <div className="min-h-screen bg-slate-50 p-4">
+
+      <div className="mb-4">
+
+        <h1 className="text-2xl font-bold">
+          Rider Dashboard
+        </h1>
+
+        <p className="text-sm text-slate-500">
+          Fresh2Cook Delivery Operations
+        </p>
+
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Assigned
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.assigned}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Active
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.active}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Delivered
+          </div>
+          <div className="text-2xl font-bold">
+            {stats.delivered}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border p-4">
+          <div className="text-xs text-slate-500">
+            Earnings
+          </div>
+          <div className="text-2xl font-bold">
+            ?{stats.earnings}
+          </div>
+        </div>
+
+      </div>
+
+      <div className="grid gap-3">
+
+        <a href="/rider/pickup-order" className="bg-white border rounded-xl p-4 font-medium">
+          Pickup Orders
+        </a>
+
+        <a href="/rider/active-delivery" className="bg-white border rounded-xl p-4 font-medium">
+          Active Deliveries
+        </a>
+
+        <a href="/rider/otp-verify" className="bg-white border rounded-xl p-4 font-medium">
+          Verify OTP
+        </a>
+
+        <a href="/rider/complete-delivery" className="bg-white border rounded-xl p-4 font-medium">
+          Complete Delivery
+        </a>
+
+        <a href="/rider/wallet" className="bg-white border rounded-xl p-4 font-medium">
+          Wallet
+        </a>
+
+        <a href="/rider/performance" className="bg-white border rounded-xl p-4 font-medium">
+          Performance
+        </a>
+
+      </div>
+
+      {loading && (
+        <div className="mt-4 text-sm text-slate-500">
+          Loading...
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+========== FILE: app\api\rider-forgot-password\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const mobile = String(body.mobile ?? "").trim();
+
+    if (!/^[0-9+\-\s()]{8,20}$/.test(mobile)) {
+      return NextResponse.json({ success: false, error: "Enter a valid registered mobile number." }, { status: 400 });
+    }
+
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const from = process.env.TWILIO_FROM_NUMBER;
+
+    if (!sid || !token || !from) {
+      return NextResponse.json({
+        success: false,
+        error: "SMS service is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER in .env, then restart the server."
+      }, { status: 503 });
+    }
+
+    const rider = await prisma.deliveryBoy.findUnique({ where: { mobile } });
+
+    if (!rider) {
+      return NextResponse.json({ success: false, error: "No rider account found for this mobile number." }, { status: 404 });
+    }
+
+    const temporaryPassword = randomBytes(6).toString("hex");
+    const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
+    const payload = new URLSearchParams({
+      To: mobile,
+      From: from,
+      Body: `Fresh2Cook Rider: Your temporary password is ${temporaryPassword}. Login and change it immediately. If you did not request this, contact support.`
+    });
+
+    const sms = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: payload.toString(),
+      cache: "no-store"
+    });
+
+    if (!sms.ok) {
+      console.error("RIDER PASSWORD SMS FAILED:", await sms.text());
+      return NextResponse.json({ success: false, error: "SMS could not be sent. Check your SMS provider settings and registered sender number." }, { status: 502 });
+    }
+
+    await prisma.deliveryBoy.update({
+      where: { id: rider.id },
+      data: { password: temporaryPassword }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Temporary password sent by SMS. Please log in and change it as soon as possible."
+    });
+  } catch (error) {
+    console.error("RIDER FORGOT PASSWORD ERROR:", error);
+    return NextResponse.json({ success: false, error: "Password reset failed. Please try again." }, { status: 500 });
+  }
+}
+
+
+========== FILE: app\api\rider-register\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(
+  req: Request
+) {
+  try {
+    const body =
+      await req.json();
+
+    const name =
+      String(
+        body.name || ""
+      ).trim();
+
+    const mobile =
+      String(
+        body.mobile || ""
+      ).trim();
+
+    const password =
+      String(
+        body.password || ""
+      ).trim();
+
+    const vehicle =
+      String(
+        body.vehicle || ""
+      ).trim();
+
+    if (
+      !name ||
+      !mobile ||
+      !vehicle
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Name, Mobile And Vehicle Required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const existingRider =
+      await prisma.deliveryBoy.findUnique(
+        {
+          where: {
+            mobile,
+          },
+        }
+      );
+
+    if (
+      existingRider
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Mobile Number Already Registered",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const rider =
+      await prisma.deliveryBoy.create(
+        {
+          data: {
+            name,
+            mobile,
+            password,
+            vehicle,
+
+            address:
+              body.address ||
+              null,
+
+            aadhaar:
+              body.aadhaar ||
+              null,
+
+            photo:
+              body.photo ||
+              null,
+
+            aadhaarFront:
+              body.aadhaarFront ||
+              null,
+
+            aadhaarBack:
+              body.aadhaarBack ||
+              null,
+
+            aadharFile:
+              body.aadharFile ||
+              null,
+
+            licenseFile:
+              body.licenseFile ||
+              null,
+
+            rcFile:
+              body.rcFile ||
+              null,
+
+            approvalStatus:
+              "Pending",
+
+            status:
+              "Offline",
+
+            rating: 5,
+
+            earnings: 0,
+
+            completedDeliveries: 0,
+          },
+        }
+      );
+
+    return NextResponse.json({
+      success: true,
+      message:
+        "Registration Submitted Successfully",
+
+      rider: {
+        id:
+          rider.id,
+
+        name:
+          rider.name,
+
+        mobile:
+          rider.mobile,
+
+        vehicle:
+          rider.vehicle,
+
+        approvalStatus:
+          rider.approvalStatus,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "RIDER REGISTER ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Registration Failed",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: app\rider\register\page.tsx ==========
+
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+export default function RiderRegisterPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({ name: "", mobile: "", password: "", vehicle: "", address: "" });
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function update(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/rider-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setMessage(data.error || data.message || "Registration failed");
+        return;
+      }
+      setMessage("Registration submitted. Your account is pending approval.");
+      setTimeout(() => router.push("/rider/login"), 1800);
+    } catch {
+      setMessage("Server connection failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+      <section className="w-full max-w-lg rounded-2xl border bg-white p-6 shadow-lg sm:p-8">
+        <h1 className="text-2xl font-bold text-slate-900">New Rider Registration</h1>
+        <p className="mb-6 mt-1 text-sm text-slate-500">Register as a Fresh2Cook delivery partner.</p>
+        <form onSubmit={submit} className="space-y-4">
+          <input required name="name" value={form.name} onChange={update} placeholder="Full name" className="w-full rounded-xl border p-3" />
+          <input required name="mobile" inputMode="tel" value={form.mobile} onChange={update} placeholder="Mobile number" className="w-full rounded-xl border p-3" />
+          <input required minLength={6} name="password" type="password" autoComplete="new-password" value={form.password} onChange={update} placeholder="Create password (min. 6 characters)" className="w-full rounded-xl border p-3" />
+          <select required name="vehicle" value={form.vehicle} onChange={update} className="w-full rounded-xl border bg-white p-3">
+            <option value="">Select vehicle type</option>
+            <option value="Bicycle">Bicycle</option>
+            <option value="Bike">Motorcycle / Scooter</option>
+            <option value="Electric Bike">Electric Bike</option>
+            <option value="Other">Other</option>
+          </select>
+          <input name="address" value={form.address} onChange={update} placeholder="Address (optional)" className="w-full rounded-xl border p-3" />
+          <button disabled={busy} className="w-full rounded-xl bg-green-600 p-3 font-semibold text-white disabled:opacity-50">{busy ? "Submitting..." : "Submit Registration"}</button>
+        </form>
+        {message && <p role="status" className="mt-4 rounded-lg bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        <p className="mt-5 text-center text-sm text-slate-600">Already registered? <Link className="font-semibold text-green-700 hover:underline" href="/rider/login">Back to Login</Link></p>
+      </section>
+    </main>
+  );
+}
+
+
+========== FILE: app\api\rider-task-queue\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ const tasks =
+  await prisma.deliveryAssignment.findMany({
+   where:{
+    status:{
+     not:"Delivered"
+    }
+   },
+   orderBy:{
+    assignedAt:"desc"
+   }
+  });
+
+ return NextResponse.json({
+  success:true,
+  tasks
+ });
+
+}
+
+
+
+
+
+
+
+========== MISSING FILE: app\api\rider-delivered\route.ts ==========
+
+
+========== FILE: app\api\rider-complete-delivery\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    const assignmentId = Number(body?.assignmentId);
+    const otp = String(body?.otp || "").trim();
+
+    if (!assignmentId || !otp) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Assignment ID and OTP Required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.deliveryAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, error: "Assignment Not Found" },
+        { status: 404 }
+      );
+    }
+
+    if (assignment.status !== "Otp Sent") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "OTP is not active for this delivery",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (assignment.otp !== otp) {
+      return NextResponse.json(
+        { success: false, error: "Invalid OTP" },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.deliveryAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: "Delivered",
+        deliveredAt: new Date(),
+        earnings: 25,
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: assignment.orderId },
+      data: {
+        status: "Delivered",
+        deliveryOtp: null,
+      },
+    });
+
+    await prisma.deliveryBoy.update({
+      where: { id: assignment.deliveryBoyId },
+      data: {
+        status: "Available",
+        completedDeliveries: {
+          increment: 1,
+        },
+        earnings: {
+          increment: 25,
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      delivered: true,
+      earning: 25,
+      assignment: updated,
+      message: "Delivery Completed Successfully",
+    });
+  } catch (error: any) {
+    console.error("RIDER COMPLETE DELIVERY ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Delivery Failed",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+

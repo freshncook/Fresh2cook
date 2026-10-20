@@ -1,0 +1,455 @@
+﻿"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+type Order = {
+  id: number;
+  customer: string;
+  phone: string | null;
+  address: string | null;
+  amount: number;
+  status: string;
+  createdAt: string;
+  processingStartedAt?: string | null;
+  processingDeadline?: string | null;
+  readyAt?: string | null;
+};
+
+type ApiResponse = {
+  success?: boolean;
+  orders?: Order[];
+  error?: string;
+};
+
+function money(value: number) {
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+function remainingSeconds(deadline?: string | null) {
+  if (!deadline) return 0;
+
+  return Math.max(
+    0,
+    Math.ceil(
+      (new Date(deadline).getTime() - Date.now()) / 1000
+    )
+  );
+}
+
+function timerText(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(
+    secs
+  ).padStart(2, "0")}`;
+}
+
+function dateText(value: string) {
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+export default function ProcessingDashboardPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [tick, setTick] = useState(Date.now());
+
+  const loadOrders = useCallback(async () => {
+    try {
+      const response = await fetch(
+        "/api/processing/orders",
+        {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }
+      );
+
+      const data: ApiResponse = await response.json();
+
+      console.log("PROCESSING API:", data);
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || `API Error ${response.status}`
+        );
+      }
+
+      setOrders(
+        Array.isArray(data.orders)
+          ? data.orders
+          : []
+      );
+
+      setError("");
+    } catch (err) {
+      console.error("PROCESSING DASHBOARD ERROR:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load orders"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOrders();
+
+    const refresh = window.setInterval(
+      loadOrders,
+      5000
+    );
+
+    const clock = window.setInterval(() => {
+      setTick(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(refresh);
+      window.clearInterval(clock);
+    };
+  }, [loadOrders]);
+
+  async function updateOrder(
+    id: number,
+    action: "start" | "ready"
+  ) {
+    try {
+      setBusyId(id);
+      setError("");
+
+      const response = await fetch(
+        "/api/processing/orders",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            id,
+            action,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to update order"
+        );
+      }
+
+      await loadOrders();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update order"
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    window.location.href = "/processing/login";
+  }
+
+  const pendingCount = orders.filter(
+    (o) =>
+      o.status === "Pending" ||
+      o.status === "Confirmed" ||
+      o.status === "Paid" ||
+      o.status === "Payment Received"
+  ).length;
+
+  const processingCount = orders.filter(
+    (o) => o.status === "Processing"
+  ).length;
+
+  const readyCount = orders.filter(
+    (o) => o.status === "Ready For Dispatch"
+  ).length;
+
+  return (
+    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-bold text-emerald-600">
+                Fresh2Cook Operations
+              </div>
+
+              <h1 className="mt-1 text-3xl font-black text-slate-900">
+                Processing Dashboard
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Live order processing &amp; 30-minute SLA
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              Logout
+            </button>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-emerald-50 p-5">
+              <div className="text-sm font-bold text-emerald-700">
+                New Orders
+              </div>
+
+              <div className="mt-2 text-3xl font-black text-slate-900">
+                {pendingCount}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-orange-50 p-5">
+              <div className="text-sm font-bold text-orange-700">
+                Processing
+              </div>
+
+              <div className="mt-2 text-3xl font-black text-slate-900">
+                {processingCount}
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-blue-50 p-5">
+              <div className="text-sm font-bold text-blue-700">
+                Ready For Dispatch
+              </div>
+
+              <div className="mt-2 text-3xl font-black text-slate-900">
+                {readyCount}
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200">
+            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+              <h2 className="text-xl font-black text-slate-900">
+                Processing Queue
+              </h2>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Orders appear here automatically after successful payment.
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="p-10 text-center font-semibold text-slate-500">
+                Loading orders...
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="text-lg font-black text-slate-700">
+                  No orders found
+                </div>
+
+                <div className="mt-2 text-sm text-slate-500">
+                  API connected, but no active orders were returned.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={loadOrders}
+                  className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white"
+                >
+                  Refresh Orders
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {orders.map((order) => {
+                  const isStartable =
+                    order.status === "Pending" ||
+                    order.status === "Confirmed" ||
+                    order.status === "Paid" ||
+                    order.status === "Payment Received";
+
+                  const isProcessing =
+                    order.status === "Processing";
+
+                  const isReady =
+                    order.status === "Ready For Dispatch";
+
+                  const seconds = isProcessing
+                    ? remainingSeconds(
+                        order.processingDeadline
+                      )
+                    : 0;
+
+                  const overdue =
+                    isProcessing &&
+                    !!order.processingDeadline &&
+                    new Date(
+                      order.processingDeadline
+                    ).getTime() < tick;
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-5"
+                    >
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xl font-black text-slate-900">
+                              Order #{order.id}
+                            </span>
+
+                            <span
+                              className={[
+                                "rounded-full px-3 py-1 text-xs font-black",
+                                isProcessing
+                                  ? overdue
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-orange-100 text-orange-700"
+                                  : isReady
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-slate-100 text-slate-700",
+                              ].join(" ")}
+                            >
+                              {overdue
+                                ? "SLA OVERDUE"
+                                : order.status}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 text-lg font-bold text-slate-800">
+                            {order.customer}
+                          </div>
+
+                          <div className="mt-1 text-sm text-slate-500">
+                            {order.phone || "No phone"}
+                          </div>
+
+                          <div className="mt-1 text-sm text-slate-500">
+                            {order.address || "No address"}
+                          </div>
+
+                          <div className="mt-3 text-sm font-black text-slate-700">
+                            Order Value: {money(order.amount)}
+                          </div>
+
+                          <div className="mt-1 text-xs text-slate-400">
+                            Received: {dateText(order.createdAt)}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-start gap-3 lg:items-end">
+                          {isStartable && (
+                            <button
+                              type="button"
+                              disabled={busyId === order.id}
+                              onClick={() =>
+                                updateOrder(
+                                  order.id,
+                                  "start"
+                                )
+                              }
+                              className="rounded-xl bg-emerald-600 px-6 py-3 font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              {busyId === order.id
+                                ? "Starting..."
+                                : "Start Processing"}
+                            </button>
+                          )}
+
+                          {isProcessing && (
+                            <>
+                              <div
+                                className={[
+                                  "rounded-2xl px-6 py-4 text-center",
+                                  overdue
+                                    ? "bg-red-50"
+                                    : "bg-orange-50",
+                                ].join(" ")}
+                              >
+                                <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                  Time Remaining
+                                </div>
+
+                                <div
+                                  className={[
+                                    "mt-1 text-3xl font-black tabular-nums",
+                                    overdue
+                                      ? "text-red-600"
+                                      : "text-orange-600",
+                                  ].join(" ")}
+                                >
+                                  {overdue
+                                    ? "00:00"
+                                    : timerText(seconds)}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={busyId === order.id}
+                                onClick={() =>
+                                  updateOrder(
+                                    order.id,
+                                    "ready"
+                                  )
+                                }
+                                className="rounded-xl bg-blue-600 px-6 py-3 font-black text-white hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {busyId === order.id
+                                  ? "Saving..."
+                                  : "Ready For Dispatch"}
+                              </button>
+                            </>
+                          )}
+
+                          {isReady && (
+                            <div className="rounded-2xl bg-blue-50 px-6 py-4 text-center">
+                              <div className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                                Dispatch Queue
+                              </div>
+
+                              <div className="mt-1 font-black text-blue-900">
+                                READY
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

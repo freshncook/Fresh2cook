@@ -1,0 +1,76 @@
+﻿import { redirect } from "next/navigation";
+import { getCurrentSession } from "@/lib/auth";
+import { PackageCheck, Clock3, Truck } from "lucide-react";
+import ProcessingLogoutButton from "@/components/processing/logout-button";
+
+export default async function ProcessingDashboardPage() {
+  const session = await getCurrentSession();
+
+  if (!session || session.kind !== "staff" || session.role !== "PROCESSING") {
+    redirect("/processing/login");
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-emerald-600">
+                Fresh2Cook Operations
+              </p>
+
+              <h1 className="mt-1 text-3xl font-extrabold text-slate-900">
+                Processing Dashboard
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Welcome, {session.name}
+              </p>
+            </div>
+
+            <ProcessingLogoutButton />
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-emerald-50 p-5">
+              <PackageCheck className="text-emerald-600" />
+
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                New Orders
+              </p>
+
+              <p className="mt-1 text-3xl font-extrabold text-slate-900">
+                —
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-orange-50 p-5">
+              <Clock3 className="text-orange-600" />
+
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                30-Minute SLA
+              </p>
+
+              <p className="mt-1 text-3xl font-extrabold text-slate-900">
+                30 min
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-blue-50 p-5">
+              <Truck className="text-blue-600" />
+
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                Ready For Dispatch
+              </p>
+
+              <p className="mt-1 text-3xl font-extrabold text-slate-900">
+                —
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

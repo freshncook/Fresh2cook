@@ -1,0 +1,193 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+async function getProductImage(
+  productName: string
+) {
+  try {
+    const response = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+        productName
+      )}&per_page=1`,
+      {
+        headers: {
+          Authorization:
+            process.env.PEXELS_API_KEY || "",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return "";
+    }
+
+    const data = await response.json();
+
+    if (
+      data.photos &&
+      data.photos.length > 0
+    ) {
+      return (
+        data.photos[0]?.src?.large ||
+        data.photos[0]?.src?.medium ||
+        ""
+      );
+    }
+
+    return "";
+  } catch (error) {
+    console.error(
+      "PEXELS IMAGE ERROR:",
+      error
+    );
+
+    return "";
+  }
+}
+
+export async function GET() {
+  try {
+    const products =
+      await prisma.product.findMany({
+        orderBy: {
+          id: "desc",
+        },
+      });
+
+    return NextResponse.json(
+      products
+    );
+  } catch (error) {
+    console.error(
+      "GET PRODUCTS ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to load products",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function POST(
+  req: Request
+) {
+  try {
+    const body = await req.json();
+
+    let image =
+      body.image?.trim() || "";
+
+    if (!image) {
+      image =
+        await getProductImage(
+          body.name
+        );
+    }
+
+    const existing =
+      await prisma.product.findFirst({
+        where: {
+          name: body.name,
+        },
+      });
+
+    if (existing) {
+      const updated =
+        await prisma.product.update({
+          where: {
+            id: existing.id,
+          },
+          data: {
+            category:
+              body.category ||
+              existing.category,
+
+            pack:
+              body.pack ||
+              existing.pack,
+
+            price: Number(
+              body.price ||
+                existing.price
+            ),
+
+            stock:
+              Number(
+                existing.stock
+              ) +
+              Number(
+                body.stock || 0
+              ),
+
+            image:
+              image ||
+              existing.image,
+
+            description:
+              body.description ||
+              existing.description,
+          },
+        });
+
+      return NextResponse.json(
+        updated
+      );
+    }
+
+    const product =
+      await prisma.product.create({
+        data: {
+          name: body.name,
+
+          category:
+            body.category ||
+            "Vegetables",
+
+          pack:
+            body.pack ||
+            "1 Pack",
+
+          price: Number(
+            body.price || 0
+          ),
+
+          stock: Number(
+            body.stock || 0
+          ),
+
+          image,
+
+          description:
+            body.description || "",
+        },
+      });
+
+    return NextResponse.json(
+      product
+    );
+  } catch (error) {
+    console.error(
+      "PRODUCT CREATE ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to create product",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+

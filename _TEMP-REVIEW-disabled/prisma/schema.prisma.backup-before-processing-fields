@@ -1,0 +1,592 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  area         String
+  source       String
+  interest     String
+  status       String
+  value        Int
+  nextFollowUp String
+  avatar       String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name     String
+  category String
+  pack     String
+
+  mrp   Int @default(0)
+  price Int
+
+  stock Int
+
+  image       String?
+  description String?
+
+  active     Boolean @default(true)
+  bestSeller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  customer  String
+  due       String
+  type      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       Int     @id @default(autoincrement())
+  customer String
+  phone    String?
+  address  String?
+
+  amount Int
+  status String @default("Pending")
+
+  deliveryOtp String?
+
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now())
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  credit    Int
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            Int      @id @default(autoincrement())
+  referrerName  String
+  referrerPhone String
+  referredPhone String
+  orderAmount   Int
+  creditEarned  Int
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  plan      String
+  amount    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  discount   Int
+  minOrder   Int
+  active     Boolean  @default(true)
+  expiryDate DateTime
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  address   String
+  city      String
+  pincode   String
+  createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  category  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id        Int      @id @default(autoincrement())
+  vendorId  Int
+  product   String
+  quantity  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int      @id @default(autoincrement())
+  vendorId   Int
+  vendorName String
+  amount     Int
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryMovement {
+  id          Int      @id @default(autoincrement())
+  productName String
+  quantity    Int
+  movement    String
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  amount    Int
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model SupplierPayment {
+  id         Int      @id @default(autoincrement())
+  vendorName String
+  amount     Int
+  method     String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryAlert {
+  id          Int      @id @default(autoincrement())
+  productName String
+  stock       Int
+  threshold   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model DailySale {
+  id        Int      @id @default(autoincrement())
+  saleDate  String
+  orders    Int
+  revenue   Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  issue     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model LoyaltyTier {
+  id        Int      @id @default(autoincrement())
+  tierName  String
+  minSpend  Int
+  benefits  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerSegment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  channel   String
+  audience  String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CampaignLog {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  customer   String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String
+  action    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String
+  createdAt   DateTime @default(now())
+}
+
+model CampaignTrigger {
+  id          Int      @id @default(autoincrement())
+  triggerName String
+  condition   String
+  action      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomerJourney {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  stage     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model RevenueForecast {
+  id         Int      @id @default(autoincrement())
+  month      String
+  revenue    Int
+  prediction Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPrediction {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  prediction String
+  confidence Int
+  createdAt  DateTime @default(now())
+}
+
+model ChurnRisk {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  riskLevel String
+  score     Int
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  productId   Int
+  productName String
+  quantity    Int
+  price       Int
+  total       Int
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  invoiceNo String   @unique
+  customer  String
+  phone     String
+  total     Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerHistory {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model DeliveryZone {
+  id        Int      @id @default(autoincrement())
+  zoneName  String
+  sectors   String
+  charge    Int
+  createdAt DateTime @default(now())
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  name   String
+  mobile String @unique
+
+  password String?
+
+  vehicle String
+
+  aadhaar String?
+  address String?
+
+  photo String?
+
+  aadhaarFront String?
+  aadhaarBack  String?
+
+  aadharFile  String?
+  licenseFile String?
+  rcFile      String?
+
+  approvalStatus String @default("Pending")
+
+  rating Float @default(5)
+
+  completedDeliveries Int @default(0)
+
+  earnings Int @default(0)
+
+  latitude  Float?
+  longitude Float?
+  speed     Float?
+
+  lastSeen DateTime?
+
+  zoneId Int?
+
+  status String @default("Offline")
+
+  createdAt DateTime @default(now())
+}
+
+model RiderWalletTransaction {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  orderId Int?
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryAssignment {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  deliveryBoyId Int
+
+  zoneId Int?
+
+  otp String
+
+  status String @default("Pending Acceptance")
+
+  assignedAt DateTime @default(now())
+
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupDeadline   DateTime?
+  deliveryDeadline DateTime?
+
+  earnings Int @default(25)
+
+  customerRating Int?
+
+  adminAlert Boolean @default(false)
+
+  lateDelivery Boolean @default(false)
+
+  alertSent Boolean @default(false)
+
+  reassignedCount Int @default(0)
+
+  autoReassigned Boolean @default(false)
+
+  reassignedAt DateTime?
+}
+
+model RiderLocationHistory {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  latitude  Float
+  longitude Float
+
+  speed Float @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model RiderAttendance {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes Int @default(0)
+
+  date String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPayout {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  amount Int
+
+  status String @default("Pending")
+
+  requestedAt DateTime @default(now())
+
+  paidAt DateTime?
+}
+
+model RiderIncentive {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  title String
+
+  amount Int
+
+  month String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPenalty {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  reason String
+
+  amount Int
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryRoute {
+  id Int @id @default(autoincrement())
+
+  routeName String
+
+  zoneId Int?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  productId Int
+
+  createdAt DateTime @default(now())
+}
+
+model WalletLedger {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  amount Int
+
+  type String
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model VendorPaymentLedger {
+  id Int @id @default(autoincrement())
+
+  vendorId Int
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  insight String
+
+  priority String
+
+  createdAt DateTime @default(now())
+}
+
+model StaffUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  mobile       String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

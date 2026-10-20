@@ -1,0 +1,1705 @@
+﻿
+========== FILE: app\rider\login\page.tsx ==========
+
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+export default function RiderLoginPage() {
+  const router = useRouter();
+  const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/rider-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: mobile.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setMessage(data.error || data.message || "Login failed");
+        return;
+      }
+      localStorage.setItem("riderId", String(data.rider.id));
+      router.push("/rider/dashboard");
+    } catch {
+      setMessage("Server connection failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/rider-forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mobile: mobile.trim() }),
+      });
+      const data = await res.json();
+      setMessage(data.message || data.error || "Request failed");
+      if (res.ok && data.success) setForgot(false);
+    } catch {
+      setMessage("Server connection failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-lg sm:p-8">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-600 text-2xl text-white">F</div>
+          <h1 className="text-2xl font-bold text-slate-900">Rider Login</h1>
+          <p className="mt-1 text-sm text-slate-500">Fresh2Cook Delivery Partner</p>
+        </div>
+
+        {forgot ? (
+          <form onSubmit={resetPassword} className="space-y-4">
+            <h2 className="text-lg font-semibold text-slate-800">Forgot Password?</h2>
+            <p className="text-sm text-slate-600">Enter your registered mobile number. A temporary password will be sent by SMS.</p>
+            <input required inputMode="tel" autoComplete="tel" value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Registered mobile number" className="w-full rounded-xl border p-3 outline-none focus:border-green-600" />
+            <button disabled={busy} className="w-full rounded-xl bg-green-600 p-3 font-semibold text-white disabled:opacity-50">{busy ? "Please wait..." : "Send Temporary Password"}</button>
+            <button type="button" onClick={() => { setForgot(false); setMessage(""); }} className="w-full text-sm text-slate-600 underline">Back to Login</button>
+          </form>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <label className="block text-sm font-medium text-slate-700">Mobile Number</label>
+            <input required inputMode="tel" autoComplete="tel" value={mobile} onChange={e => setMobile(e.target.value)} placeholder="Enter registered mobile" className="w-full rounded-xl border p-3 outline-none focus:border-green-600" />
+            <label className="block text-sm font-medium text-slate-700">Password</label>
+            <input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" className="w-full rounded-xl border p-3 outline-none focus:border-green-600" />
+            <div className="text-right">
+              <button type="button" onClick={() => { setForgot(true); setMessage(""); }} className="text-sm font-medium text-green-700 hover:underline">Forgot Password?</button>
+            </div>
+            <button disabled={busy} className="w-full rounded-xl bg-green-600 p-3 font-semibold text-white hover:bg-green-700 disabled:opacity-50">{busy ? "Logging in..." : "Login"}</button>
+          </form>
+        )}
+
+        {message && <p role="status" className="mt-4 rounded-lg bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+
+        <div className="mt-6 border-t pt-5 text-center">
+          <p className="text-sm text-slate-600">New Rider?</p>
+          <Link href="/rider/register" className="mt-1 inline-block text-sm font-bold text-green-700 hover:underline">Register Here →</Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+
+========== FILE: app\rider\my-tasks\page.tsx ==========
+
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Task = {
+  id: number;
+  orderId: number;
+  status: string;
+  order?: {
+    customer?: string;
+    phone?: string;
+    address?: string;
+    amount?: number;
+  };
+};
+
+export default function Page() {
+  const [data, setData] = useState<any>(null);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState<number | null>(null);
+
+  const riderId =
+    typeof window !== "undefined"
+      ? localStorage.getItem("riderId")
+      : null;
+
+  async function loadTasks() {
+    if (!riderId) return;
+
+    try {
+      const res = await fetch(
+        `/api/rider-my-tasks?riderId=${riderId}`,
+        { cache: "no-store" }
+      );
+
+      const result = await res.json();
+      setData(result);
+    } catch {
+      setMessage("Tasks load Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥â€¹ Ã Â¤Â¸Ã Â¤â€¢Ã Â¥â€¡");
+    }
+  }
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  async function acceptOrder(assignmentId: number) {
+    setLoading(assignmentId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/delivery-accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assignmentId, action: "accept" }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        setMessage(result.error || "Order accept Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥ÂÃ Â¤â€ ");
+        return;
+      }
+
+      setMessage(
+        "Order Accepted Ã¢Å“â€¦ Customer Ã Â¤â€¢Ã Â¥â€¹ rider details Ã Â¤â€¢Ã Â¥â‚¬ notification Ã Â¤Â¤Ã Â¥Ë†Ã Â¤Â¯Ã Â¤Â¾Ã Â¤Â° Ã Â¤Â¹Ã Â¥Ë†Ã Â¥Â¤"
+      );
+
+      await loadTasks();
+    } catch {
+      setMessage("Order accept Ã Â¤â€¢Ã Â¤Â°Ã Â¤Â¨Ã Â¥â€¡ Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function pickupOrder(assignmentId: number) {
+    setLoading(assignmentId);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-pickup-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assignmentId, action: "accept" }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        setMessage(result.error || "Pickup Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Â¹Ã Â¥ÂÃ Â¤â€ ");
+        return;
+      }
+
+      setMessage(
+        "Order Picked Up Ã¢Å“â€¦ Ã Â¤â€¦Ã Â¤Â¬ customer location Ã Â¤ÂªÃ Â¤Â° Ã Â¤Å“Ã Â¤Â¾Ã Â¤â€¢Ã Â¤Â° Delivery Ã Â¤Â¶Ã Â¥ÂÃ Â¤Â°Ã Â¥â€š Ã Â¤â€¢Ã Â¤Â°Ã Â¥â€¡Ã Â¤â€šÃ Â¥Â¤"
+      );
+
+      await loadTasks();
+    } catch {
+      setMessage("Pickup Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function startDelivery(assignmentId: number) {
+    window.location.href =
+      `/rider/verify-otp?assignmentId=${assignmentId}`;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 pb-24">
+      <div className="max-w-5xl mx-auto">
+
+        <h1 className="text-3xl font-bold mb-2">
+          My Delivery Tasks
+        </h1>
+
+        <p className="text-gray-600 mb-6">
+          Ã Â¤â€ Ã Â¤ÂªÃ Â¤â€¢Ã Â¥â€¡ assigned orders
+        </p>
+
+        {message && (
+          <div className="mb-5 bg-white border rounded-xl p-4 shadow-sm">
+            {message}
+          </div>
+        )}
+
+        {!data?.tasks && (
+          <div className="bg-white p-6 rounded-xl shadow">
+            Loading...
+          </div>
+        )}
+
+        {data?.tasks?.length === 0 && (
+          <div className="bg-white p-6 rounded-xl shadow">
+            No Assigned Orders
+          </div>
+        )}
+
+        <div className="grid gap-5">
+
+          {data?.tasks?.map((task: Task) => {
+
+            const status = task.status;
+
+            return (
+              <div
+                key={task.id}
+                className="bg-white rounded-2xl shadow p-5 border"
+              >
+
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <div className="text-xl font-bold">
+                      Order #{task.orderId}
+                    </div>
+
+                    <div className="text-sm text-gray-500 mt-1">
+                      Assignment #{task.id}
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-1 rounded-full bg-slate-50 text-sm font-semibold">
+                    {status}
+                  </div>
+                </div>
+
+                {task.order && (
+                  <div className="mt-5 space-y-2 text-sm">
+                    <div>
+                      <b>Customer:</b>{" "}
+                      {task.order.customer || "-"}
+                    </div>
+
+                    <div>
+                      <b>Phone:</b>{" "}
+                      {task.order.phone || "-"}
+                    </div>
+
+                    <div>
+                      <b>Address:</b>{" "}
+                      {task.order.address || "-"}
+                    </div>
+
+                    <div>
+                      <b>Amount:</b>{" "}
+                      Ã¢â€šÂ¹{task.order.amount || 0}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5">
+
+                  {status === "Pending Acceptance" && (
+                    <button
+                      onClick={() => acceptOrder(task.id)}
+                      disabled={loading === task.id}
+                      className="w-full bg-green-600 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-50"
+                    >
+                      {loading === task.id
+                        ? "Accepting..."
+                        : "Accept Order"}
+                    </button>
+                  )}
+
+                  {status === "Accepted" && (
+                    <button
+                      onClick={() => pickupOrder(task.id)}
+                      disabled={loading === task.id}
+                      className="w-full bg-blue-600 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-50"
+                    >
+                      {loading === task.id
+                        ? "Processing..."
+                        : "Pickup Order"}
+                    </button>
+                  )}
+
+                  {status === "Picked Up" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-orange-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Start Delivery
+                    </button>
+                  )}
+
+                  {status === "Out For Delivery" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-orange-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Enter Delivery OTP
+                    </button>
+                  )}
+
+                  {status === "Otp Sent" && (
+                    <button
+                      onClick={() => startDelivery(task.id)}
+                      className="w-full bg-purple-600 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Verify Customer OTP
+                    </button>
+                  )}
+
+                  {status === "Delivered" && (
+                    <div className="w-full bg-green-50 text-green-700 px-4 py-3 rounded-xl font-semibold text-center">
+                      Delivered Ã¢Å“â€¦
+                      <br />
+                      <span className="text-sm">
+                        Earning Ã¢â€šÂ¹25
+                      </span>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            );
+          })}
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+========== FILE: app\rider\tasks\page.tsx ==========
+
+"use client";
+
+import {useEffect,useState} from "react";
+
+export default function Page(){
+
+ const [data,setData]=useState<any>();
+
+ useEffect(()=>{
+  fetch("/api/rider-task-queue")
+   .then(r=>r.json())
+   .then(setData);
+ },[]);
+
+ return(
+  <div className="p-6">
+   <h1 className="text-2xl font-bold">
+    Rider Tasks
+   </h1>
+   <pre>{JSON.stringify(data,null,2)}</pre>
+  </div>
+ );
+}
+
+
+
+
+
+
+
+========== FILE: app\api\rider-login\route.ts ==========
+
+
+import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+function sign(payload: string) {
+  const secret = process.env.RIDER_SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("RIDER_SESSION_SECRET must be at least 32 characters");
+  }
+
+  return createHmac("sha256", secret)
+    .update(payload)
+    .digest("base64url");
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const mobile = String(body.mobile ?? "").trim();
+    const password = String(body.password ?? "");
+
+    if (!mobile || !password) {
+      return NextResponse.json(
+        { success: false, error: "Mobile and password required" },
+        { status: 400 }
+      );
+    }
+
+    const rider = await prisma.deliveryBoy.findUnique({
+      where: { mobile },
+    });
+
+    if (!rider || !rider.password || rider.password !== password) {
+      return NextResponse.json(
+        { success: false, error: "Invalid mobile or password" },
+        { status: 401 }
+      );
+    }
+
+    if (rider.approvalStatus !== "Approved") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Your rider account is not approved yet",
+          approvalStatus: rider.approvalStatus,
+        },
+        { status: 403 }
+      );
+    }
+
+    const payload = Buffer.from(
+      JSON.stringify({
+        riderId: rider.id,
+        exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      })
+    ).toString("base64url");
+
+    const token = `${payload}.${sign(payload)}`;
+
+    const response = NextResponse.json({
+      success: true,
+      rider: {
+        id: rider.id,
+        name: rider.name,
+        mobile: rider.mobile,
+        vehicle: rider.vehicle,
+        status: rider.status,
+        approvalStatus: rider.approvalStatus,
+      },
+    });
+
+    response.cookies.set("f2c_rider_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("RIDER LOGIN ERROR:", error);
+
+    return NextResponse.json(
+      { success: false, error: "Login failed. Check server configuration." },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== FILE: app\api\rider-session\route.ts ==========
+
+
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export const runtime = "nodejs";
+
+function validSignature(payload: string, signature: string) {
+  const secret = process.env.RIDER_SESSION_SECRET;
+  if (!secret || secret.length < 32) return false;
+
+  const expected = createHmac("sha256", secret)
+    .update(payload)
+    .digest();
+
+  let supplied: Buffer;
+  try {
+    supplied = Buffer.from(signature, "base64url");
+  } catch {
+    return false;
+  }
+
+  return supplied.length === expected.length &&
+    timingSafeEqual(supplied, expected);
+}
+
+export async function GET(req: NextRequest) {
+  const token = req.cookies.get("f2c_rider_session")?.value;
+
+  if (!token) {
+    return NextResponse.json({ success: false, session: false }, { status: 401 });
+  }
+
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 2 || !validSignature(parts[0], parts[1])) {
+      throw new Error("Invalid session");
+    }
+
+    const payload = JSON.parse(
+      Buffer.from(parts[0], "base64url").toString("utf8")
+    );
+
+    if (
+      !Number.isInteger(payload.riderId) ||
+      !Number.isFinite(payload.exp) ||
+      payload.exp <= Date.now()
+    ) {
+      throw new Error("Expired session");
+    }
+
+    return NextResponse.json({
+      success: true,
+      session: true,
+      riderId: payload.riderId,
+    });
+  } catch {
+    const response = NextResponse.json(
+      { success: false, session: false },
+      { status: 401 }
+    );
+
+    response.cookies.set("f2c_rider_session", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return response;
+  }
+}
+
+
+========== FILE: app\api\rider-my-tasks\route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+function getRiderId(req: NextRequest): number | null {
+  const token = req.cookies.get("f2c_rider_session")?.value;
+  const secret = process.env.RIDER_SESSION_SECRET;
+
+  if (!token || !secret || secret.length < 32) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+
+  try {
+    const expected = createHmac("sha256", secret)
+      .update(parts[0])
+      .digest();
+    const supplied = Buffer.from(parts[1], "base64url");
+
+    if (
+      supplied.length !== expected.length ||
+      !timingSafeEqual(supplied, expected)
+    ) return null;
+
+    const payload = JSON.parse(
+      Buffer.from(parts[0], "base64url").toString("utf8")
+    );
+
+    if (
+      !Number.isInteger(payload.riderId) ||
+      !Number.isFinite(payload.exp) ||
+      payload.exp <= Date.now()
+    ) return null;
+
+    return payload.riderId;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const riderId = getRiderId(req);
+
+    if (!riderId) {
+      return NextResponse.json(
+        { success: false, error: "Please log in again", tasks: [] },
+        { status: 401 }
+      );
+    }
+
+    const rider = await prisma.deliveryBoy.findUnique({
+      where: { id: riderId },
+      select: { id: true, approvalStatus: true },
+    });
+
+    if (!rider || rider.approvalStatus !== "Approved") {
+      return NextResponse.json(
+        { success: false, error: "Rider account is not approved", tasks: [] },
+        { status: 403 }
+      );
+    }
+
+    const tasks = await prisma.deliveryAssignment.findMany({
+      where: { deliveryBoyId: riderId },
+      include: {
+        order: {
+          select: {
+            id: true,
+            customer: true,
+            phone: true,
+            address: true,
+            amount: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { assignedAt: "desc" },
+    });
+
+    return NextResponse.json({ success: true, tasks });
+  } catch (error) {
+    console.error("RIDER MY TASKS ERROR:", error);
+    return NextResponse.json(
+      { success: false, error: "Could not load tasks", tasks: [] },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== FILE: app\api\rider-orders\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } =
+      new URL(req.url);
+
+    const riderId = Number(
+      searchParams.get("riderId")
+    );
+
+    if (!riderId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rider ID required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const assignments =
+      await prisma.deliveryAssignment.findMany({
+        where: {
+          deliveryBoyId: riderId,
+        },
+        orderBy: {
+          assignedAt: "desc",
+        },
+      });
+
+    const orderIds =
+      assignments.map(
+        (a) => a.orderId
+      );
+
+    const orders =
+      orderIds.length > 0
+        ? await prisma.order.findMany({
+            where: {
+              id: {
+                in: orderIds,
+              },
+            },
+          })
+        : [];
+
+    const orderMap = new Map(
+      orders.map((o) => [o.id, o])
+    );
+
+    const result =
+      assignments.map((a) => ({
+        assignmentId: a.id,
+        orderId: a.orderId,
+        otp: a.otp,
+        status: a.status,
+        earnings: a.earnings,
+        assignedAt: a.assignedAt,
+
+        customer:
+          orderMap.get(a.orderId)
+            ?.customer || "",
+
+        phone:
+          orderMap.get(a.orderId)
+            ?.phone || "",
+
+        address:
+          orderMap.get(a.orderId)
+            ?.address || "",
+
+        amount:
+          orderMap.get(a.orderId)
+            ?.amount || 0,
+      }));
+
+    return NextResponse.json({
+      success: true,
+      orders: result,
+    });
+  } catch (error: any) {
+    console.error(
+      "RIDER ORDERS ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message ?? "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+
+========== FILE: app\api\rider-accept-order\route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const assignmentId = Number(body?.assignmentId);
+
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Valid assignment ID required" },
+        { status: 400 }
+      );
+    }
+
+    const token = req.cookies.get("f2c_rider_session")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: "Please log in again" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Use POST /api/delivery-accept with assignmentId and action: accept or reject.",
+      },
+      { status: 410 }
+    );
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Invalid request" },
+      { status: 400 }
+    );
+  }
+}
+
+
+========== FILE: app\api\rider-pickup-order\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const assignmentId = Number(body?.assignmentId);
+
+    if (!assignmentId) {
+      return NextResponse.json(
+        { success: false, error: "Assignment ID Required" },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.deliveryAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, error: "Assignment Not Found" },
+        { status: 404 }
+      );
+    }
+
+    if (assignment.status !== "Accepted") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order must be Accepted before Pickup",
+        },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.deliveryAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: "Picked Up",
+        pickedAt: new Date(),
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: assignment.orderId },
+      data: { status: "Picked Up" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      assignment: updated,
+      message: "Order Picked Up Successfully",
+    });
+  } catch (error: any) {
+    console.error("RIDER PICKUP ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Failed To Pickup Order",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: app\api\rider-verify-otp\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    const assignmentId = Number(body?.assignmentId);
+    const otp = String(body?.otp || "").trim();
+
+    if (!assignmentId || !otp) {
+      return NextResponse.json(
+        {
+          success: false,
+          verified: false,
+          error: "Assignment ID and OTP Required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.deliveryAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, verified: false, error: "Assignment Not Found" },
+        { status: 404 }
+      );
+    }
+
+    if (assignment.status !== "Otp Sent") {
+      return NextResponse.json(
+        {
+          success: false,
+          verified: false,
+          error: "Please send delivery OTP first",
+        },
+        { status: 400 }
+      );
+    }
+
+    const verified = assignment.otp === otp;
+
+    if (!verified) {
+      return NextResponse.json(
+        {
+          success: false,
+          verified: false,
+          error: "Invalid OTP",
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      verified: true,
+      assignmentId,
+      message: "OTP Verified Successfully",
+    });
+  } catch (error: any) {
+    console.error("RIDER VERIFY OTP ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        verified: false,
+        error: error?.message || "OTP Verification Failed",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: app\api\rider-earnings\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ const riders =
+  await prisma.deliveryBoy.findMany({
+   select:{
+    id:true,
+    name:true,
+    earnings:true,
+    completedDeliveries:true
+   }
+  });
+
+ return NextResponse.json({
+  success:true,
+  riders
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: app\api\rider-payouts\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: components\rider\session-guard.tsx ==========
+
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function RiderSessionGuard({
+ children,
+}:{
+ children:React.ReactNode
+}){
+
+ const router =
+  useRouter();
+
+ useEffect(()=>{
+
+  const riderId =
+   localStorage.getItem(
+    "riderId"
+   );
+
+  if(!riderId){
+
+   router.push(
+    "/rider/login"
+   );
+
+  }
+
+ },[router]);
+
+ return <>{children}</>;
+
+}
+
+
+
+
+
+
+
+========== FILE: prisma\schema.prisma ==========
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  area         String
+  source       String
+  interest     String
+  status       String
+  value        Int
+  nextFollowUp String
+  avatar       String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name     String
+  category String
+  pack     String
+
+  mrp   Int @default(0)
+  price Int
+
+  stock Int
+
+  image       String?
+  description String?
+
+  active     Boolean @default(true)
+  bestSeller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id        Int      @id @default(autoincrement())
+  title     String
+  customer  String
+  due       String
+  type      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id       Int     @id @default(autoincrement())
+  customer String
+  phone    String?
+  address  String?
+
+  amount Int
+  status String @default("Pending")
+
+  deliveryOtp String?
+
+  latitude  Float?
+  longitude Float?
+
+  processingUserId    Int?
+  processingStartedAt DateTime?
+  processingDeadline  DateTime?
+  readyAt             DateTime?
+  dispatchedAt        DateTime?
+
+  processingStep             Int       @default(0)
+  processingAcceptedById     Int?
+  processingAcceptedAt       DateTime?
+  processingPreparedById     Int?
+  processingPreparedAt       DateTime?
+  processingCrossCheckedById Int?
+  processingCrossCheckedAt   DateTime?
+  processingStickerById      Int?
+  processingStickerAt        DateTime?
+  processingPackagingById    Int?
+  processingPackagingAt      DateTime?
+  processingDispatchedById   Int?
+
+  createdAt DateTime @default(now())
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  credit    Int
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            Int      @id @default(autoincrement())
+  referrerName  String
+  referrerPhone String
+  referredPhone String
+  orderAmount   Int
+  creditEarned  Int
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Membership {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  plan      String
+  amount    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  discount   Int
+  minOrder   Int
+  active     Boolean  @default(true)
+  expiryDate DateTime
+  createdAt  DateTime @default(now())
+}
+
+model CustomerAddress {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  phone      String
+  label      String   @default("Home")
+  address    String
+  city       String
+  pincode    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Vendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  category  String
+  city      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id        Int      @id @default(autoincrement())
+  vendorId  Int
+  product   String
+  quantity  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id         Int      @id @default(autoincrement())
+  vendorId   Int
+  vendorName String
+  amount     Int
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryMovement {
+  id          Int      @id @default(autoincrement())
+  productName String
+  quantity    Int
+  movement    String
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id        Int      @id @default(autoincrement())
+  title     String
+  amount    Int
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model SupplierPayment {
+  id         Int      @id @default(autoincrement())
+  vendorName String
+  amount     Int
+  method     String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model InventoryAlert {
+  id          Int      @id @default(autoincrement())
+  productName String
+  stock       Int
+  threshold   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model DailySale {
+  id        Int      @id @default(autoincrement())
+  saleDate  String
+  orders    Int
+  revenue   Int
+  createdAt DateTime @default(now())
+}
+
+model CustomerFeedback {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  issue     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model LoyaltyTier {
+  id        Int      @id @default(autoincrement())
+  tierName  String
+  minSpend  Int
+  benefits  String
+  createdAt DateTime @default(now())
+}
+
+model CustomerSegment {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  title     String
+  channel   String
+  audience  String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CampaignLog {
+  id         Int      @id @default(autoincrement())
+  campaignId Int
+  customer   String
+  status     String
+  createdAt  DateTime @default(now())
+}
+
+model AutomationRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  trigger   String
+  action    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model MarketingInsight {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  priority    String
+  createdAt   DateTime @default(now())
+}
+
+model CampaignTrigger {
+  id          Int      @id @default(autoincrement())
+  triggerName String
+  condition   String
+  action      String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model CustomerJourney {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  stage     String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model RevenueForecast {
+  id         Int      @id @default(autoincrement())
+  month      String
+  revenue    Int
+  prediction Int
+  createdAt  DateTime @default(now())
+}
+
+model CustomerPrediction {
+  id         Int      @id @default(autoincrement())
+  customer   String
+  prediction String
+  confidence Int
+  createdAt  DateTime @default(now())
+}
+
+model ChurnRisk {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  riskLevel String
+  score     Int
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+
+  orderId     Int
+  productId   Int
+
+  productName String
+
+  pack        String?   
+
+  quantity    Int
+  price       Int
+  total       Int
+
+  packed      Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id        Int      @id @default(autoincrement())
+  invoiceNo String   @unique
+  customer  String
+  phone     String
+  total     Int
+  packed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model CustomerHistory {
+  id        Int      @id @default(autoincrement())
+  customer  String
+  phone     String
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model DeliveryZone {
+  id        Int      @id @default(autoincrement())
+  zoneName  String
+  sectors   String
+  charge    Int
+  createdAt DateTime @default(now())
+}
+
+model DeliveryBoy {
+  id Int @id @default(autoincrement())
+
+  name   String
+  mobile String @unique
+
+  password String?
+
+  vehicle String
+
+  aadhaar String?
+  address String?
+
+  photo String?
+
+  aadhaarFront String?
+  aadhaarBack  String?
+
+  aadharFile  String?
+  licenseFile String?
+  rcFile      String?
+
+  approvalStatus String @default("Pending")
+
+  rating Float @default(5)
+
+  completedDeliveries Int @default(0)
+
+  earnings Int @default(0)
+
+  latitude  Float?
+  longitude Float?
+  speed     Float?
+
+  lastSeen DateTime?
+
+  zoneId Int?
+
+  status String @default("Offline")
+
+  createdAt DateTime @default(now())
+}
+
+model RiderWalletTransaction {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  orderId Int?
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryAssignment {
+  id Int @id @default(autoincrement())
+
+  orderId       Int
+  deliveryBoyId Int
+
+  zoneId Int?
+
+  otp String
+
+  status String @default("Pending Acceptance")
+
+  assignedAt DateTime @default(now())
+
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupDeadline   DateTime?
+  deliveryDeadline DateTime?
+
+  earnings Int @default(25)
+
+  customerRating Int?
+
+  adminAlert Boolean @default(false)
+
+  lateDelivery Boolean @default(false)
+
+  alertSent Boolean @default(false)
+
+  reassignedCount Int @default(0)
+
+  autoReassigned Boolean @default(false)
+
+  reassignedAt DateTime?
+}
+
+model RiderLocationHistory {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  latitude  Float
+  longitude Float
+
+  speed Float @default(0)
+
+  createdAt DateTime @default(now())
+}
+
+model RiderAttendance {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  checkIn  DateTime?
+  checkOut DateTime?
+
+  workingMinutes Int @default(0)
+
+  date String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPayout {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  amount Int
+
+  status String @default("Pending")
+
+  requestedAt DateTime @default(now())
+
+  paidAt DateTime?
+}
+
+model RiderIncentive {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  title String
+
+  amount Int
+
+  month String
+
+  createdAt DateTime @default(now())
+}
+
+model RiderPenalty {
+  id Int @id @default(autoincrement())
+
+  riderId Int
+
+  reason String
+
+  amount Int
+
+  createdAt DateTime @default(now())
+}
+
+model DeliveryRoute {
+  id Int @id @default(autoincrement())
+
+  routeName String
+
+  zoneId Int?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  productId Int
+
+  createdAt DateTime @default(now())
+}
+
+model WalletLedger {
+  id Int @id @default(autoincrement())
+
+  phone String
+
+  amount Int
+
+  type String
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model VendorPaymentLedger {
+  id Int @id @default(autoincrement())
+
+  vendorId Int
+
+  amount Int
+
+  type String
+
+  note String?
+
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  insight String
+
+  priority String
+
+  createdAt DateTime @default(now())
+}
+
+model StaffUser {
+  id           Int      @id @default(autoincrement())
+  name         String
+  mobile       String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

@@ -1,0 +1,188 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentSession } from "@/lib/auth";
+
+const PROCESSING_STATUSES = [
+  "Pending",
+  "Processing",
+  "Ready For Dispatch",
+];
+
+async function requireProcessingStaff() {
+  const session = await getCurrentSession();
+
+  if (
+    !session ||
+    session.kind !== "staff" ||
+    String(session.role).toUpperCase() !== "PROCESSING"
+  ) {
+    return null;
+  }
+
+  return session;
+}
+
+export async function GET() {
+  try {
+    const session = await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const orders = await prisma.order.findMany({
+      where: {
+        status: {
+          in: PROCESSING_STATUSES,
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("PROCESSING ORDERS GET ERROR:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load processing orders",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const session = await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+
+    const id = Number(body?.id);
+    const action = String(body?.action || "").trim();
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return NextResponse.json(
+        { error: "Valid order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!["start", "ready"].includes(action)) {
+      return NextResponse.json(
+        { error: "Invalid processing action" },
+        { status: 400 }
+      );
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
+
+    const now = new Date();
+
+    if (action === "start") {
+      if (order.status !== "Pending") {
+        return NextResponse.json(
+          {
+            error:
+              "Only Pending orders can be started for processing",
+          },
+          { status: 400 }
+        );
+      }
+
+      const processingDeadline = new Date(
+        now.getTime() + 30 * 60 * 1000
+      );
+
+      const staffId = Number(
+        (session as { staffId?: number }).staffId
+      );
+
+      if (!Number.isInteger(staffId) || staffId <= 0) {
+        return NextResponse.json(
+          { error: "Processing staff session is invalid" },
+          { status: 401 }
+        );
+      }
+
+      const updated = await prisma.order.update({
+        where: { id },
+        data: {
+          status: "Processing",
+          processingUserId: staffId,
+          processingStartedAt: now,
+          processingDeadline,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        action: "start",
+        order: updated,
+      });
+    }
+
+    if (order.status !== "Processing") {
+      return NextResponse.json(
+        {
+          error:
+            "Only Processing orders can be marked Ready For Dispatch",
+        },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: {
+        status: "Ready For Dispatch",
+        readyAt: now,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      action: "ready",
+      order: updated,
+    });
+  } catch (error) {
+    console.error("PROCESSING ORDERS PATCH ERROR:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update processing order",
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,221 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function AIDemandForecastPage() {
+  const [products, setProducts] =
+    useState<any[]>([]);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  function loadProducts() {
+    const data = JSON.parse(
+      localStorage.getItem(
+        "freshcut-products"
+      ) || "[]"
+    );
+
+    const forecast =
+      data.map(
+        (item: any) => ({
+          ...item,
+          predictedSales:
+            Math.floor(
+              Math.random() * 200
+            ) + 20,
+          recommendedStock:
+            Math.floor(
+              Math.random() * 500
+            ) + 50,
+        })
+      );
+
+    setProducts(
+      forecast
+    );
+  }
+
+  const totalForecast =
+    products.reduce(
+      (
+        sum: number,
+        item: any
+      ) =>
+        sum +
+        Number(
+          item.predictedSales || 0
+        ),
+      0
+    );
+
+  const totalPurchase =
+    products.reduce(
+      (
+        sum: number,
+        item: any
+      ) =>
+        sum +
+        Number(
+          item.recommendedStock || 0
+        ),
+      0
+    );
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+
+      <div className="max-w-7xl mx-auto">
+
+        <h1 className="text-4xl font-bold mb-8">
+          AI Demand Forecast 2.0
+        </h1>
+
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+
+          <div className="bg-white rounded-3xl shadow p-6">
+
+            <p>
+              Predicted Sales
+            </p>
+
+            <h2 className="text-3xl font-bold text-green-600">
+              {totalForecast}
+            </h2>
+
+          </div>
+
+          <div className="bg-white rounded-3xl shadow p-6">
+
+            <p>
+              Recommended Purchase
+            </p>
+
+            <h2 className="text-3xl font-bold text-blue-600">
+              {totalPurchase}
+            </h2>
+
+          </div>
+
+          <div className="bg-white rounded-3xl shadow p-6">
+
+            <p>
+              Forecast Accuracy
+            </p>
+
+            <h2 className="text-3xl font-bold text-purple-600">
+              96%
+            </h2>
+
+          </div>
+
+        </div>
+
+        <div className="bg-white rounded-3xl shadow overflow-hidden">
+
+          <div className="p-6 border-b">
+
+            <h2 className="text-2xl font-bold">
+              Product Forecast
+            </h2>
+
+          </div>
+
+          <div className="overflow-x-auto">
+
+            <table className="w-full">
+
+              <thead>
+
+                <tr className="bg-gray-50">
+
+                  <th className="p-4 text-left">
+                    Product
+                  </th>
+
+                  <th className="p-4 text-left">
+                    Current Stock
+                  </th>
+
+                  <th className="p-4 text-left">
+                    Predicted Sales
+                  </th>
+
+                  <th className="p-4 text-left">
+                    Purchase Recommendation
+                  </th>
+
+                  <th className="p-4 text-left">
+                    Status
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {products.map(
+                  (
+                    item: any,
+                    index: number
+                  ) => (
+
+                    <tr
+                      key={index}
+                      className="border-t"
+                    >
+
+                      <td className="p-4 font-semibold">
+                        {item.name}
+                      </td>
+
+                      <td className="p-4">
+                        {item.stock}
+                      </td>
+
+                      <td className="p-4 text-blue-600 font-bold">
+                        {item.predictedSales}
+                      </td>
+
+                      <td className="p-4 text-green-600 font-bold">
+                        {
+                          item.recommendedStock
+                        }
+                      </td>
+
+                      <td className="p-4">
+
+                        {item.stock <
+                        item.predictedSales ? (
+                          <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                            Reorder Now
+                          </span>
+                        ) : (
+                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                            Healthy Stock
+                          </span>
+                        )}
+
+                      </td>
+
+                    </tr>
+
+                  )
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+

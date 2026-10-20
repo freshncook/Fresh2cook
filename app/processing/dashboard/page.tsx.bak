@@ -1,0 +1,217 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function ProcessingDashboard() {
+
+  const [orders,setOrders] = useState<any[]>([]);
+  const [loading,setLoading] = useState(true);
+
+  async function loadOrders() {
+
+    try {
+
+      const res = await fetch(
+        "/api/processing/orders",
+        { cache:"no-store" }
+      );
+
+      const data = await res.json();
+
+      setOrders(
+        Array.isArray(data)
+          ? data
+          : data.orders || []
+      );
+
+    } catch {
+
+      setOrders([]);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }
+
+  useEffect(()=>{
+    loadOrders();
+  },[]);
+
+  async function updateStep(
+    orderId:number,
+    action:string
+  ){
+
+    await fetch(
+      "/api/processing/orders",
+      {
+        method:"PATCH",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          orderId,
+          action
+        })
+      }
+    );
+
+    loadOrders();
+
+  }
+
+  return (
+
+    <div className="min-h-screen bg-slate-100 p-3">
+
+      <div className="mb-3 flex items-center justify-between">
+
+        <div>
+          <h1 className="text-xl font-bold">
+            Processing Dashboard
+          </h1>
+
+          <p className="text-xs text-slate-500">
+            Fresh2Cook Operations
+          </p>
+        </div>
+
+        <button
+          onClick={loadOrders}
+          className="rounded-lg bg-black px-3 py-2 text-white text-sm"
+        >
+          Refresh
+        </button>
+
+      </div>
+
+      <div className="grid grid-cols-4 gap-2 mb-3">
+
+        <div className="rounded-xl border bg-white p-2 text-center">
+          <div className="text-lg font-bold">{orders.length}</div>
+          <div className="text-[10px]">Orders</div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-2 text-center">
+          <div className="text-lg font-bold">0</div>
+          <div className="text-[10px]">Accepted</div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-2 text-center">
+          <div className="text-lg font-bold">0</div>
+          <div className="text-[10px]">Packed</div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-2 text-center">
+          <div className="text-lg font-bold">0</div>
+          <div className="text-[10px]">Pending</div>
+        </div>
+
+      </div>
+
+      {loading && (
+        <div className="rounded-xl border bg-white p-4">
+          Loading...
+        </div>
+      )}
+
+      <div className="space-y-3">
+
+        {orders.map((order:any)=>(
+
+          <div
+            key={order.id}
+            className="rounded-xl border bg-white p-3 shadow-sm"
+          >
+
+            <div className="flex items-center justify-between">
+
+              <div>
+                <div className="font-bold">
+                  #{order.id}
+                </div>
+
+                <div className="text-xs text-slate-500">
+                  {order.customer}
+                </div>
+              </div>
+
+              <div className="text-xs font-semibold text-green-600">
+                {order.status}
+              </div>
+
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+
+              <div>
+                Phone : {order.phone}
+              </div>
+
+              <div>
+                Amount : ?{order.amount}
+              </div>
+
+              <div>
+                Items : {order.items?.length || 0}
+              </div>
+
+              <div>
+                Step : {order.processingStep || 0}
+              </div>
+
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+
+              <button
+                onClick={()=>updateStep(order.id,"accept")}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-xs text-white"
+              >
+                Accept
+              </button>
+
+              <button
+                onClick={()=>updateStep(order.id,"prepare")}
+                className="rounded-lg bg-amber-500 px-3 py-2 text-xs text-white"
+              >
+                Prepare
+              </button>
+
+              <button
+                onClick={()=>updateStep(order.id,"crosscheck")}
+                className="rounded-lg bg-purple-600 px-3 py-2 text-xs text-white"
+              >
+                Check
+              </button>
+
+              <button
+                onClick={()=>updateStep(order.id,"sticker")}
+                className="rounded-lg bg-pink-600 px-3 py-2 text-xs text-white"
+              >
+                Sticker
+              </button>
+
+              <button
+                onClick={()=>updateStep(order.id,"pack")}
+                className="rounded-lg bg-green-600 px-3 py-2 text-xs text-white"
+              >
+                Packed
+              </button>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+  );
+
+}

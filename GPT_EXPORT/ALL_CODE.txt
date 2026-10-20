@@ -1,0 +1,953 @@
+================ CUSTOMER DETAILS ================
+import { redirect } from "next/navigation";
+
+export default function CustomerDetailsPage() {
+  redirect("/payment");
+}
+
+================ PAYMENT PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
+
+type CartItem = {
+  id: number;
+  name: string;
+  price: number;
+  qty: number;
+  pack?: string;
+  image?: string | null;
+};
+
+export default function PaymentPage() {
+  const [customer, setCustomer] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [gpsLocation, setGpsLocation] = useState("");
+
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState(0);
+
+  const [transactionId, setTransactionId] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  useEffect(() => {
+    const storedCart = JSON.parse(
+      localStorage.getItem("freshcut-cart") || "[]"
+    );
+
+    const safeCart: CartItem[] = Array.isArray(storedCart)
+      ? storedCart
+      : [];
+
+    setCart(safeCart);
+
+    const storedTotal = Number(
+      localStorage.getItem("freshcut-total") || 0
+    );
+
+    setTotal(storedTotal);
+
+    const totalItems = safeCart.reduce(
+      (sum: number, item: CartItem) =>
+        sum + Number(item.qty || 1),
+      0
+    );
+
+    setItems(totalItems);
+
+    setCustomer(
+      localStorage.getItem("freshcut-customer") || ""
+    );
+
+    setPhone(
+      localStorage.getItem("freshcut-phone") || ""
+    );
+
+    setAddress(
+      localStorage.getItem("freshcut-address") || ""
+    );
+  }, []);
+
+  const upiUrl =
+    `upi://pay?pa=ramakant.rao-1@okicici&pn=Fresh2Cook&am=${total}&cu=INR`;
+
+  const invoiceNumber =
+    `F2C-${Date.now()}`;
+
+  const invoiceDate =
+    new Date().toLocaleDateString("en-GB");
+
+  function getLocation() {
+    if (!navigator.geolocation) {
+      alert("GPS not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGpsLocation(
+          `${position.coords.latitude},${position.coords.longitude}`
+        );
+      },
+      () => {
+        alert("Unable to fetch location");
+      }
+    );
+  }
+
+  function openWhatsApp() {
+    const cleanedPhone =
+      phone.replace(/\D/g, "");
+
+    const whatsappNumber =
+      cleanedPhone.length === 10
+        ? `91${cleanedPhone}`
+        : cleanedPhone;
+
+    const totalItems = cart.reduce(
+      (sum: number, item: CartItem) =>
+        sum + Number(item.qty || 1),
+      0
+    );
+
+    const message = `
+Fresh2Cook – Order Confirmation
+
+Dear ${customer}
+
+📍 Address
+${address}
+${city} - ${pincode}
+
+📞 Mobile
+${phone}
+
+🧾 Items: ${totalItems}
+💰 Amount: ₹${total}
+
+Payment Status: SUCCESS
+
+Invoice No: ${invoiceNumber}
+
+care@fresh2cook.in
+Customer Care: 9811001901
+
+Thank you for choosing Fresh2Cook.
+`;
+
+    window.open(
+      `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        message
+      )}`,
+      "_blank"
+    );
+  }
+
+  async function completePayment() {
+    if (!customer.trim()) {
+      alert("Enter Customer Name");
+      return;
+    }
+
+    if (!phone.trim()) {
+      alert("Enter Mobile Number");
+      return;
+    }
+
+    if (!address.trim()) {
+      alert("Enter Address");
+      return;
+    }
+
+    if (!transactionId.trim()) {
+      alert("Enter Transaction ID");
+      return;
+    }
+
+    try {
+      setProcessing(true);
+
+      await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customer,
+          phone,
+          address,
+          city,
+          pincode,
+          gpsLocation,
+          amount: total,
+          items: cart,
+          transactionId,
+          paymentStatus: "Paid",
+        }),
+      });
+
+      setPaymentSuccess(true);
+
+      setTimeout(() => {
+        openWhatsApp();
+      }, 1000);
+
+    } catch (error) {
+      console.error(error);
+      alert("Order Failed");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  if (paymentSuccess) {    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+
+        <div
+          id="invoice"
+          className="relative bg-white w-full max-w-5xl rounded-2xl shadow-xl overflow-hidden"
+        >
+
+          <img
+            src="/basket.png"
+            alt="Basket"
+            className="absolute bottom-6 right-6 w-72 opacity-10 pointer-events-none"
+          />
+
+          <div className="bg-green-700 text-white p-6">
+
+            <div className="flex justify-between items-center">
+
+              <div>
+                <img
+                  src="/fresh2cook-logo.png"
+                  alt="Fresh2Cook"
+                  className="h-20"
+                />
+              </div>
+
+              <div className="text-right">
+
+                <h1 className="text-3xl font-bold">
+                  TAX INVOICE
+                </h1>
+
+                <p>
+                  Invoice No: {invoiceNumber}
+                </p>
+
+                <p>
+                  Date: {invoiceDate}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <div className="p-6">
+
+            <div className="border-b pb-4 mb-4">
+
+              <h2 className="font-bold text-xl mb-2">
+                Customer Details
+              </h2>
+
+              <p>
+                <strong>{customer}</strong>
+              </p>
+
+              <p>{phone}</p>
+
+              <p>{address}</p>
+
+              <p>
+                {city} - {pincode}
+              </p>
+
+              {gpsLocation && (
+                <p className="text-xs text-blue-600 break-all mt-2">
+                  GPS: {gpsLocation}
+                </p>
+              )}
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+
+              <div>
+                <strong>Email</strong>
+                <br />
+                care@fresh2cook.in
+              </div>
+
+              <div>
+                <strong>Customer Care</strong>
+                <br />
+                9811001901
+              </div>
+
+            </div>
+
+            <table className="w-full border text-sm">
+
+              <thead>
+
+                <tr className="bg-gray-100">
+
+                  <th className="border p-2 text-left">
+                    Product
+                  </th>
+
+                  <th className="border p-2">
+                    Qty
+                  </th>
+
+                  <th className="border p-2">
+                    Price
+                  </th>
+
+                  <th className="border p-2">
+                    Amount
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {cart.map((item) => (
+
+                  <tr key={item.id}>
+
+                    <td className="border p-2">
+                      {item.name}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      {item.qty}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      ₹{item.price}
+                    </td>
+
+                    <td className="border p-2 text-center">
+                      ₹{item.price * item.qty}
+                    </td>
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
+
+            <div className="mt-6 space-y-2">
+
+              <div className="flex justify-between">
+                <span>Total Items</span>
+                <span>{items}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Payment Status</span>
+
+                <span className="font-bold text-green-600">
+                  PAID
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Transaction ID</span>
+                <span>{transactionId}</span>
+              </div>
+
+              <div className="flex justify-between border-t pt-3 text-xl font-bold">
+
+                <span>
+                  Grand Total
+                </span>
+
+                <span>
+                  ₹{total}
+                </span>
+
+              </div>
+
+            </div>            <div className="mt-8 border-t pt-5 text-center">
+
+              <p className="font-bold text-green-700 text-xl">
+                Fresh2Cook
+              </p>
+
+              <p>
+                Fresh • Hygienic • Ready To Cook
+              </p>
+
+              <p>
+                Email: care@fresh2cook.in
+              </p>
+
+              <p>
+                Customer Care: 9811001901
+              </p>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Thank you for your order.
+              </p>
+
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3">
+
+              <button
+                onClick={() => window.print()}
+                className="bg-blue-600 text-white py-3 rounded-xl font-bold"
+              >
+                Download / Print Invoice
+              </button>
+
+              <button
+                onClick={openWhatsApp}
+                className="bg-green-600 text-white py-3 rounded-xl font-bold"
+              >
+                Send WhatsApp Confirmation
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f7f7f3] p-6">
+
+      <div className="max-w-3xl mx-auto">
+
+        <h1 className="text-4xl font-extrabold mb-6 text-center">
+          Checkout & Payment
+        </h1>
+
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+
+          <div className="bg-green-50 rounded-2xl p-6 mb-6">
+
+            <div className="flex justify-between">
+              <span>Total Items</span>
+
+              <span className="font-bold">
+                {items}
+              </span>
+            </div>
+
+            <div className="flex justify-between mt-3">
+
+              <span>Amount Payable</span>
+
+              <span className="text-2xl font-bold text-green-700">
+                ₹{total}
+              </span>
+
+            </div>
+
+          </div>
+
+          <div className="border rounded-2xl p-6 mb-6">
+
+            <h2 className="text-2xl font-bold text-center">
+              Scan QR & Pay
+            </h2>
+
+            <div className="flex justify-center mt-6 bg-white p-4 rounded-xl">
+
+              <QRCode
+                value={upiUrl}
+                size={300}
+              />
+
+            </div>
+
+            <div className="bg-gray-100 rounded-xl p-4 mt-5 text-center">
+
+              <div className="text-sm text-gray-500">
+                UPI ID
+              </div>
+
+              <div className="font-bold text-xl text-green-700">
+                ramakant.rao-1@okicici
+              </div>
+
+              <div className="mt-3 text-2xl font-bold text-green-700">
+                ₹{total}
+              </div>
+
+            </div>
+
+          </div>
+
+          <h2 className="text-2xl font-bold mb-4">
+            Customer Details
+          </h2>
+
+          <div className="space-y-4 mb-6">
+
+            <input
+              type="text"
+              value={customer}
+              onChange={(e) => setCustomer(e.target.value)}
+              placeholder="Customer Name"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Mobile Number"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <textarea
+              rows={3}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="House No, Street, Area"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <input
+              type="text"
+              value={pincode}
+              onChange={(e) => setPincode(e.target.value)}
+              placeholder="Pincode"
+              className="w-full border p-4 rounded-xl"
+            />
+
+            <div className="flex gap-3">
+
+              <input
+                type="text"
+                value={gpsLocation}
+                readOnly
+                placeholder="GPS Location"
+                className="flex-1 border p-4 rounded-xl"
+              />
+
+              <button
+                type="button"
+                onClick={getLocation}
+                className="bg-blue-600 text-white px-5 rounded-xl"
+              >
+                Get GPS
+              </button>
+
+            </div>
+
+          </div>
+
+          <div className="mb-6">
+
+            <label className="font-semibold block mb-2">
+              Transaction ID / UTR
+            </label>
+
+            <input
+              value={transactionId}
+              onChange={(e) =>
+                setTransactionId(e.target.value)
+              }
+              type="text"
+              placeholder="Enter Transaction ID"
+              className="w-full border rounded-xl p-4"
+            />
+
+          </div>
+
+          <button
+            onClick={completePayment}
+            disabled={processing}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-xl"
+          >
+            {processing
+              ? "Processing..."
+              : "Confirm Payment"}
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+================ THANK YOU PAGE ================
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function ThankYouPage() {
+  const [order, setOrder] =
+    useState<any>(null);
+
+  useEffect(() => {
+    const data = JSON.parse(
+      localStorage.getItem(
+        "freshcut-order"
+      ) || "{}"
+    );
+
+    setOrder(data);
+  }, []);
+
+  function sendWhatsApp() {
+    let productText = "";
+
+    order?.products?.forEach(
+      (item: any) => {
+        productText +=
+          `* ${item.name} x ${item.qty}\n`;
+      }
+    );
+
+    const msg =
+`Fresh2Cook ORDER CONFIRMED
+  
+Thank You, ${order?.customer}
+Address: ${order?.address}
+Mobile: ${order?.phone}
+ 
+Product Details:
+${productText}
+  
+Subtotal: ₹${order?.subtotal}
+Handling: ₹${order?.handling}
+Delivery: ₹${order?.delivery}
+Grand Total: ₹${order?.total}
+  
+Invoice: FC-${order?.id}
+UTR/TRN: ${order?.utr}
+Payment: ${order?.paymentStatus}
+Status: ${order?.status}
+  
+Thank You
+Team Fresh2Cook
+Support: 9811001901`;
+
+    window.open(
+      `https://wa.me/${order?.phone}?text=${encodeURIComponent(
+        msg
+      )}`,
+      "_blank"
+    );
+  }
+
+  function downloadInvoice() {
+    let products = "";
+
+    order?.products?.forEach(
+      (item: any) => {
+        products +=
+          `${item.name} x ${item.qty} = ₹${
+            Number(item.price) *
+            Number(item.qty)
+          }\n`;
+      }
+    );
+
+    const invoice = `
+=======================================
+
+              Fresh2Cook
+
+=======================================
+
+INVOICE NO:
+FC-${order?.id}
+
+---------------------------------------
+
+CUSTOMER
+
+${order?.customer}
+
+${order?.phone}
+
+${order?.address}
+
+---------------------------------------
+
+PRODUCT DETAILS
+
+${products}
+
+---------------------------------------
+
+SUBTOTAL
+₹${order?.subtotal}
+
+HANDLING
+₹${order?.handling}
+
+DELIVERY
+₹${order?.delivery}
+
+---------------------------------------
+
+GRAND TOTAL
+₹${order?.total}
+
+---------------------------------------
+
+UTR/TRN
+
+${order?.utr}
+
+---------------------------------------
+
+PAYMENT STATUS
+
+${order?.paymentStatus}
+
+---------------------------------------
+
+ORDER STATUS
+
+${order?.status}
+
+=======================================
+
+THANK YOU
+
+Fresh2Cook
+
+Support: 9811001901
+
+=======================================
+`;
+
+    const blob = new Blob(
+      [invoice],
+      {
+        type: "text/plain",
+      }
+    );
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const a =
+      document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      `FreshCut-Invoice-FC-${order?.id}.txt`;
+
+    a.click();
+  }
+
+  if (!order) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+
+      <div className="max-w-5xl mx-auto">
+
+        <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+          <div className="bg-green-600 text-white text-center p-8">
+
+            <h1 className="text-5xl font-bold">
+              Order Confirmed
+            </h1>
+
+            <p className="mt-2">
+              Thank You For Ordering
+            </p>
+
+          </div>
+
+          <div className="p-8">
+
+            <div className="bg-green-50 rounded-2xl p-6 mb-6">
+
+              <h2 className="text-2xl font-bold mb-4">
+                Invoice Summary
+              </h2>
+
+              <div className="space-y-2">
+
+                <p>
+                  <strong>Invoice:</strong>{" "}
+                  FC-{order.id}
+                </p>
+
+                <p>
+                  <strong>Customer:</strong>{" "}
+                  {order.customer}
+                </p>
+
+                <p>
+                  <strong>Mobile:</strong>{" "}
+                  {order.phone}
+                </p>
+
+                <p>
+                  <strong>Address:</strong>{" "}
+                  {order.address}
+                </p>
+
+                <p>
+                  <strong>UTR/TRN:</strong>{" "}
+                  {order.utr}
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="bg-white border rounded-2xl p-6 mb-6">
+
+              <h2 className="text-2xl font-bold mb-4">
+                Products
+              </h2>
+
+              {order?.products?.map(
+                (
+                  item: any,
+                  index: number
+                ) => (
+                  <div
+                    key={index}
+                    className="flex justify-between border-b py-3"
+                  >
+                    <span>
+                      {item.name} x {item.qty}
+                    </span>
+
+                    <span>
+                      ₹
+                      {Number(
+                        item.price
+                      ) *
+                        Number(
+                          item.qty
+                        )}
+                    </span>
+                  </div>
+                )
+              )}
+
+            </div>
+
+            <div className="bg-blue-50 rounded-2xl p-6 mb-6">
+
+              <div className="flex justify-between mb-2">
+                <span>
+                  Subtotal
+                </span>
+
+                <span>
+                  ₹{order.subtotal}
+                </span>
+              </div>
+
+              <div className="flex justify-between mb-2">
+                <span>
+                  Handling
+                </span>
+
+                <span>
+                  ₹{order.handling}
+                </span>
+              </div>
+
+              <div className="flex justify-between mb-2">
+                <span>
+                  Delivery
+                </span>
+
+                <span>
+                  ₹{order.delivery}
+                </span>
+              </div>
+
+              <hr className="my-3" />
+
+              <div className="flex justify-between text-3xl font-bold text-green-700">
+                <span>
+                  Total
+                </span>
+
+                <span>
+                  ₹{order.total}
+                </span>
+              </div>
+
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+
+              <button
+                onClick={
+                  sendWhatsApp
+                }
+                className="bg-green-600 text-white py-4 rounded-xl font-bold"
+              >
+                WhatsApp Invoice
+              </button>
+
+              <button
+                onClick={
+                  downloadInvoice
+                }
+                className="bg-blue-600 text-white py-4 rounded-xl font-bold"
+              >
+                Download Invoice
+              </button>
+
+            </div>
+
+            <a
+              href="/products"
+              className="block text-center mt-6 bg-black text-white py-4 rounded-xl font-bold"
+            >
+              Continue Shopping
+            </a>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+

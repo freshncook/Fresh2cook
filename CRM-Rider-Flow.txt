@@ -1,0 +1,3193 @@
+﻿FRESH2COOK RIDER FLOW SOURCE
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\abandoned-cart\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET(){
+
+ return NextResponse.json({
+  success:true,
+  carts:[
+   {
+    customer:"Rahul",
+    value:450,
+    ageHours:4
+   },
+   {
+    customer:"Amit",
+    value:320,
+    ageHours:7
+   }
+  ]
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin\audit-logs\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Audit Logs",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin\users\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "User Management",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-assign-order\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: {
+          notIn: [
+            "Delivered",
+            "Cancelled",
+            "Assigned To Rider",
+            "Assigned",
+          ],
+        },
+      },
+      orderBy: {
+        id: "desc",
+      },
+    });
+
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          id: "desc",
+        },
+      });
+
+    return NextResponse.json({
+      success: true,
+      orders,
+      riders,
+    });
+  } catch (error: any) {
+    console.error(
+      "ADMIN ASSIGN GET ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error?.message ||
+          "Failed To Load Data",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function POST(
+  req: Request
+) {
+  try {
+    const body = await req.json();
+
+    const orderId = Number(
+      body?.orderId
+    );
+
+    const riderId = Number(
+      body?.riderId
+    );
+
+    if (
+      !Number.isInteger(orderId) ||
+      orderId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Valid Order ID required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      !Number.isInteger(riderId) ||
+      riderId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Valid Rider ID required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const order =
+      await prisma.order.findUnique({
+        where: {
+          id: orderId,
+        },
+      });
+
+    if (!order) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order Not Found",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const rider =
+      await prisma.deliveryBoy.findUnique({
+        where: {
+          id: riderId,
+        },
+      });
+
+    if (!rider) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Rider Not Found",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const existing =
+      await prisma.deliveryAssignment.findFirst(
+        {
+          where: {
+            orderId,
+          },
+        }
+      );
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order Already Assigned",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    const assignment =
+      await prisma.deliveryAssignment.create({
+        data: {
+          orderId,
+          deliveryBoyId:
+            riderId,
+
+          /*
+           * OTP is NOT generated at assignment.
+           * It will be generated only at delivery.
+           */
+          otp: "",
+
+          status:
+            "Pending Acceptance",
+
+          assignedAt:
+            new Date(),
+
+          pickupDeadline:
+            new Date(
+              Date.now() +
+                3 * 60 * 1000
+            ),
+
+          earnings: 25,
+        },
+      });
+
+    await prisma.order.update({
+      where: {
+        id: orderId,
+      },
+      data: {
+        status:
+          "Assigned To Rider",
+
+        deliveryOtp: null,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      assignment,
+      message:
+        "Order assigned to rider. Delivery OTP will be generated only at delivery.",
+    });
+  } catch (error: any) {
+    console.error(
+      "ADMIN ASSIGN POST ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error?.message ||
+          "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-auto-dispatch\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Rider = {
+  id: number;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
+  approvalStatus: string;
+  rating: number;
+  completedDeliveries: number;
+  lastSeen: Date | null;
+};
+
+function distance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function makeOtp() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => null);
+
+    if (!body || !Number.isInteger(Number(body.orderId)) || Number(body.orderId) <= 0) {
+      return NextResponse.json({ error: "Valid orderId is required" }, { status: 400 });
+    }
+
+    const orderId = Number(body.orderId);
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    const activeAssignment = await prisma.deliveryAssignment.findFirst({
+      where: {
+        orderId,
+        status: { notIn: ["Delivered", "Cancelled", "Rejected", "Failed"] },
+      },
+    });
+
+    if (activeAssignment) {
+      return NextResponse.json(
+        { error: "Order already has an active rider assignment", assignment: activeAssignment },
+        { status: 409 }
+      );
+    }
+
+    const suppliedLat = Number(body.latitude);
+    const suppliedLon = Number(body.longitude);
+
+    const latitude = Number.isFinite(suppliedLat) ? suppliedLat : order.latitude;
+    const longitude = Number.isFinite(suppliedLon) ? suppliedLon : order.longitude;
+
+    if (
+      latitude == null ||
+      longitude == null ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 || latitude > 90 ||
+      longitude < -180 || longitude > 180
+    ) {
+      return NextResponse.json(
+        { error: "Valid order GPS coordinates are required" },
+        { status: 400 }
+      );
+    }
+
+    const riders: Rider[] = await prisma.deliveryBoy.findMany({
+      where: {
+        status: "Available",
+        approvalStatus: "Approved",
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+    });
+
+    if (!riders.length) {
+      return NextResponse.json(
+        { error: "No approved, available GPS rider found" },
+        { status: 400 }
+      );
+    }
+
+    const ranked = riders
+      .filter((rider) =>
+        rider.latitude != null &&
+        rider.longitude != null &&
+        Number.isFinite(rider.latitude) &&
+        Number.isFinite(rider.longitude)
+      )
+      .map((rider) => ({
+        rider,
+        distance: distance(
+          latitude,
+          longitude,
+          rider.latitude as number,
+          rider.longitude as number
+        ),
+      }))
+      .sort((a, b) =>
+        a.distance - b.distance ||
+        b.rider.rating - a.rider.rating ||
+        a.rider.completedDeliveries - b.rider.completedDeliveries
+      );
+
+    const selected = ranked[0];
+
+    if (!selected) {
+      return NextResponse.json({ error: "No valid GPS rider found" }, { status: 400 });
+    }
+
+    const assignment = await prisma.deliveryAssignment.create({
+      data: {
+        orderId,
+        deliveryBoyId: selected.rider.id,
+        otp: makeOtp(),
+        status: "Pending Acceptance",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      assignment,
+      rider: {
+        id: selected.rider.id,
+        name: selected.rider.name,
+      },
+      distanceKm: Number(selected.distance.toFixed(2)),
+    });
+  } catch (error) {
+    console.error("AUTO DISPATCH ERROR", error);
+    return NextResponse.json({ error: "Dispatch failed" }, { status: 500 });
+  }
+}
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-command-center\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "Admin Command Center",
+  });
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-alerts\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Admin Delivery Alerts",
+    alerts: [
+      {
+        id: 1,
+        type: "Late Delivery",
+        severity: "High",
+        message: "12 orders delayed"
+      },
+      {
+        id: 2,
+        type: "Rider Shortage",
+        severity: "Medium",
+        message: "Zone A requires 3 riders"
+      }
+    ],
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-analytics\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders =
+      await prisma.deliveryBoy.findMany();
+
+    const deliveredOrders =
+      await prisma.deliveryAssignment.count({
+        where: {
+          status: "Delivered",
+        },
+      });
+
+    const pendingOrders =
+      await prisma.deliveryAssignment.count({
+        where: {
+          status: {
+            not: "Delivered",
+          },
+        },
+      });
+
+    const revenue =
+      deliveredOrders * 40;
+
+    return NextResponse.json({
+      totalRiders:
+        riders.length,
+
+      deliveredOrders,
+
+      pendingOrders,
+
+      revenue,
+
+      riders,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Analytics",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-cancel-order\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Admin Delivery Cancel Order",
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export async function POST() {
+  return NextResponse.json({
+    success: true,
+    message: "Order cancelled successfully",
+    timestamp: new Date().toISOString(),
+  });
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-control-tower\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const totalRiders =
+      await prisma.deliveryBoy.count();
+
+    const onlineRiders =
+      await prisma.deliveryBoy.count({
+        where: {
+          status: {
+            in: [
+              "Online",
+              "On Delivery",
+              "Available",
+            ],
+          },
+        },
+      });
+
+    const activeOrders =
+      await prisma.deliveryAssignment.count({
+        where: {
+          status: {
+            in: [
+              "Pending Acceptance",
+              "Accepted",
+              "Picked Up",
+              "Out For Delivery",
+            ],
+          },
+        },
+      });
+
+    const completedOrders =
+      await prisma.deliveryAssignment.count({
+        where: {
+          status: "Delivered",
+        },
+      });
+
+    const delayedOrders =
+      await prisma.deliveryAssignment.count({
+        where: {
+          status: {
+            in: [
+              "Pending Acceptance",
+              "Accepted",
+            ],
+          },
+          assignedAt: {
+            lte: new Date(
+              Date.now() -
+                30 *
+                  60 *
+                  1000
+            ),
+          },
+        },
+      });
+
+    const totalRevenue =
+      await prisma.deliveryBoy.aggregate({
+        _sum: {
+          earnings: true,
+        },
+      });
+
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          lastSeen: "desc",
+        },
+        take: 10,
+      });
+
+    const latestOrders =
+      await prisma.deliveryAssignment.findMany(
+        {
+          orderBy: {
+            assignedAt:
+              "desc",
+          },
+          take: 15,
+        }
+      );
+
+    return NextResponse.json({
+      success: true,
+
+      summary: {
+        totalRiders,
+        onlineRiders,
+        activeOrders,
+        completedOrders,
+        delayedOrders,
+
+        totalEarnings:
+          totalRevenue._sum
+            .earnings || 0,
+      },
+
+      riders,
+      latestOrders,
+    });
+  } catch (error) {
+    console.error(
+      "CONTROL TOWER ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Control Tower",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-dashboard\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+
+    const [
+      totalRiders,
+      onlineRiders,
+      totalOrders,
+      deliveredOrders,
+      pendingOrders,
+      assignments,
+      pendingAssignments,
+      acceptedAssignments,
+      deliveredAssignments
+    ] = await Promise.all([
+
+      prisma.deliveryBoy.count(),
+
+      prisma.deliveryBoy.count({
+        where: {
+          status: "Online",
+        },
+      }),
+
+      prisma.order.count(),
+
+      prisma.order.count({
+        where: {
+          status: "Delivered",
+        },
+      }),
+
+      prisma.order.count({
+        where: {
+          status: {
+            notIn: [
+              "Delivered",
+              "Cancelled",
+            ],
+          },
+        },
+      }),
+
+      prisma.deliveryAssignment.count(),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Pending Acceptance",
+        },
+      }),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Accepted",
+        },
+      }),
+
+      prisma.deliveryAssignment.count({
+        where: {
+          status:
+            "Delivered",
+        },
+      }),
+
+    ]);
+
+    return NextResponse.json({
+      success: true,
+
+      totalRiders,
+      onlineRiders,
+
+      totalOrders,
+      deliveredOrders,
+      pendingOrders,
+
+      assignments,
+      pendingAssignments,
+      acceptedAssignments,
+      deliveredAssignments,
+    });
+
+  } catch (error: any) {
+
+    console.error(
+      "DELIVERY DASHBOARD ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message ?? "Internal Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-finance\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-heatmap\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders = await prisma.deliveryBoy.findMany({
+      where: {
+        latitude: {
+          not: null,
+        },
+        longitude: {
+          not: null,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        status: true,
+      },
+    });
+
+    return NextResponse.json(riders);
+  } catch (error) {
+    console.error(
+      "DELIVERY HEATMAP ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error: "Failed To Load Heatmap",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-leaderboard\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-order-details\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-orders\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-performance\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Assignment = {
+  status: string;
+  lateDelivery: boolean | null;
+};
+
+export async function GET() {
+  try {
+    const assignments: Assignment[] =
+      await prisma.deliveryAssignment.findMany();
+
+    const total =
+      assignments.length;
+
+    const delivered =
+      assignments.filter(
+        (x: Assignment) =>
+          x.status ===
+          "Delivered"
+      ).length;
+
+    const late =
+      assignments.filter(
+        (x: Assignment) =>
+          Boolean(
+            x.lateDelivery
+          )
+      ).length;
+
+    const sla =
+      total > 0
+        ? Number(
+            (
+              ((total - late) /
+                total) *
+              100
+            ).toFixed(2)
+          )
+        : 100;
+
+    return NextResponse.json({
+      total,
+      delivered,
+      late,
+      sla,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Performance",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-reassign\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-riders\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Rider = {
+  id: number;
+  name: string;
+};
+
+export async function GET() {
+  try {
+    const riders: Rider[] =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          name: "asc",
+        },
+      });
+
+    const data =
+      await Promise.all(
+        riders.map(
+          async (rider: Rider) => {
+            const activeOrder =
+              await prisma.deliveryAssignment.findFirst(
+                {
+                  where: {
+                    deliveryBoyId:
+                      rider.id,
+                    status: {
+                      in: [
+                        "Pending Acceptance",
+                        "Accepted",
+                        "Picked Up",
+                        "Out For Delivery",
+                      ],
+                    },
+                  },
+                  orderBy: {
+                    assignedAt:
+                      "desc",
+                  },
+                }
+              );
+
+            const todayDeliveries =
+              await prisma.deliveryAssignment.count(
+                {
+                  where: {
+                    deliveryBoyId:
+                      rider.id,
+                    status:
+                      "Delivered",
+                    deliveredAt: {
+                      gte: new Date(
+                        new Date().setHours(
+                          0,
+                          0,
+                          0,
+                          0
+                        )
+                      ),
+                    },
+                  },
+                }
+              );
+
+            return {
+              ...rider,
+
+              currentOrder:
+                activeOrder?.orderId ||
+                null,
+
+              currentStatus:
+                activeOrder?.status ||
+                "Idle",
+
+              todayDeliveries,
+            };
+          }
+        )
+      );
+
+    return NextResponse.json(
+      data
+    );
+  } catch (error) {
+    console.error(
+      "ADMIN DELIVERY RIDERS ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Riders",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-rider-wallets\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-delivery-sla\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+type Assignment = {
+  status: string;
+  lateDelivery: boolean | null;
+  adminAlert: boolean | null;
+};
+
+export async function GET() {
+  try {
+    const now = new Date();
+
+    const pickupBreaches =
+      await prisma.deliveryAssignment.updateMany({
+        where: {
+          status: "Pending Acceptance",
+          pickupDeadline: {
+            lt: now,
+          },
+          lateDelivery: false,
+        },
+        data: {
+          lateDelivery: true,
+          adminAlert: true,
+        },
+      });
+
+    const deliveryBreaches =
+      await prisma.deliveryAssignment.updateMany({
+        where: {
+          status: {
+            not: "Delivered",
+          },
+          deliveryDeadline: {
+            lt: now,
+          },
+          lateDelivery: false,
+        },
+        data: {
+          lateDelivery: true,
+          adminAlert: true,
+        },
+      });
+
+    const assignments: Assignment[] =
+      await prisma.deliveryAssignment.findMany({
+        orderBy: {
+          assignedAt: "desc",
+        },
+      });
+
+    const total =
+      assignments.length;
+
+    const delivered =
+      assignments.filter(
+        (a: Assignment) =>
+          a.status === "Delivered"
+      ).length;
+
+    const late =
+      assignments.filter(
+        (a: Assignment) =>
+          a.lateDelivery === true
+      ).length;
+
+    const activeAlerts =
+      assignments.filter(
+        (a: Assignment) =>
+          a.adminAlert === true
+      ).length;
+
+    const sla =
+      total > 0
+        ? Number(
+            (
+              ((total - late) /
+                total) *
+              100
+            ).toFixed(2)
+          )
+        : 100;
+
+    return NextResponse.json({
+      success: true,
+      total,
+      delivered,
+      late,
+      activeAlerts,
+      pickupBreaches:
+        pickupBreaches.count,
+      deliveryBreaches:
+        deliveryBreaches.count,
+      sla,
+    });
+  } catch (error) {
+    console.error(
+      "DELIVERY SLA ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Failed To Load SLA",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-fleet-ai\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const [
+      riders,
+      assignments,
+      orders,
+    ] = await Promise.all([
+      prisma.deliveryBoy.findMany(),
+      prisma.deliveryAssignment.findMany(),
+      prisma.order.findMany(),
+    ]);
+
+    const onlineRiders =
+      riders.filter(
+        (r) => r.status === "Online"
+      ).length;
+
+    const lateAssignments =
+      assignments.filter(
+        (a) => a.lateDelivery
+      ).length;
+
+    const deliveredOrders =
+      orders.filter(
+        (o) =>
+          o.status ===
+          "Delivered"
+      ).length;
+
+    const pendingOrders =
+      orders.filter(
+        (o) =>
+          o.status !==
+            "Delivered" &&
+          o.status !==
+            "Cancelled"
+      ).length;
+
+    const fleetScore =
+      riders.reduce(
+        (sum, r) =>
+          sum +
+          r.completedDeliveries,
+        0
+      );
+
+    return NextResponse.json({
+      success: true,
+      onlineRiders,
+      lateAssignments,
+      deliveredOrders,
+      pendingOrders,
+      fleetScore,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-live-riders\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-live-tracking\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-nearby-rider\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+  const R = 6371;
+
+  const dLat =
+    ((lat2 - lat1) * Math.PI) / 180;
+
+  const dLon =
+    ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(dLat / 2) *
+      Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+
+  return R * c;
+}
+
+export async function GET(
+  req: Request
+) {
+  try {
+    const { searchParams } =
+      new URL(req.url);
+
+    const latitude = Number(
+      searchParams.get("latitude")
+    );
+
+    const longitude = Number(
+      searchParams.get("longitude")
+    );
+
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        where: {
+          status: "Available",
+        },
+      });
+
+    const nearby = riders
+      .filter(
+        (r: any) =>
+          r.latitude != null &&
+          r.longitude != null
+      )
+      .map((rider: any) => ({
+        ...rider,
+        distance:
+          calculateDistance(
+            latitude,
+            longitude,
+            rider.latitude,
+            rider.longitude
+          ),
+      }))
+      .sort(
+        (a: any, b: any) =>
+          a.distance - b.distance
+      );
+
+    return NextResponse.json(
+      nearby
+    );
+  } catch (error) {
+    console.error(
+      "NEARBY RIDER ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Riders",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-order-board\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const assignments =
+      await prisma.deliveryAssignment.findMany({
+        orderBy: {
+          assignedAt: "desc",
+        },
+      });
+
+    const grouped = {
+      pendingAcceptance:
+        assignments.filter(
+          (a: any) =>
+            a.status ===
+            "Pending Acceptance"
+        ),
+
+      accepted:
+        assignments.filter(
+          (a: any) =>
+            a.status ===
+            "Accepted"
+        ),
+
+      pickedUp:
+        assignments.filter(
+          (a: any) =>
+            a.status ===
+            "Picked Up"
+        ),
+
+      outForDelivery:
+        assignments.filter(
+          (a: any) =>
+            a.status ===
+            "Out For Delivery"
+        ),
+
+      delivered:
+        assignments.filter(
+          (a: any) =>
+            a.status ===
+            "Delivered"
+        ),
+    };
+
+    return NextResponse.json(
+      grouped
+    );
+  } catch (error) {
+    console.error(
+      "ORDER BOARD ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Order Board",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-approvals\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    const summary = {
+      total:
+        riders.length,
+
+      approved:
+        riders.filter(
+          (r: any) =>
+            r.approvalStatus ===
+            "Approved"
+        ).length,
+
+      pending:
+        riders.filter(
+          (r: any) =>
+            r.approvalStatus ===
+            "Pending"
+        ).length,
+
+      rejected:
+        riders.filter(
+          (r: any) =>
+            r.approvalStatus ===
+            "Rejected"
+        ).length,
+    };
+
+    return NextResponse.json({
+      success: true,
+      summary,
+      riders,
+    });
+  } catch (error) {
+    console.error(
+      "RIDER APPROVAL GET ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Failed To Load Riders",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function POST(
+  req: Request
+) {
+  try {
+    const body =
+      await req.json();
+
+    const riderId =
+      Number(
+        body.riderId
+      );
+
+    const status =
+      String(
+        body.status || ""
+      );
+
+    if (!riderId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Rider ID Required",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      ![
+        "Approved",
+        "Pending",
+        "Rejected",
+      ].includes(status)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Invalid Status",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const rider =
+      await prisma.deliveryBoy.findUnique(
+        {
+          where: {
+            id: riderId,
+          },
+        }
+      );
+
+    if (!rider) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Rider Not Found",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const updatedRider =
+      await prisma.deliveryBoy.update(
+        {
+          where: {
+            id: riderId,
+          },
+          data: {
+            approvalStatus:
+              status,
+          },
+        }
+      );
+
+    return NextResponse.json({
+      success: true,
+      message:
+        `Rider ${status} Successfully`,
+      rider:
+        updatedRider,
+    });
+  } catch (error) {
+    console.error(
+      "RIDER APPROVAL POST ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Failed To Update Rider Status",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-details\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-documents\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+          vehicle: true,
+          photo: true,
+          aadhaarFront: true,
+          aadhaarBack: true,
+          licenseFile: true,
+          rcFile: true,
+          approvalStatus: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    return NextResponse.json(
+      riders
+    );
+  } catch (error) {
+    console.error(
+      "RIDER DOCUMENTS ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Documents",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-incentives\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          earnings: "desc",
+        },
+      });
+
+    return NextResponse.json(riders);
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: "Failed To Load Incentives" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-leaderboard\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const riders =
+      await prisma.deliveryBoy.findMany({
+        orderBy: {
+          completedDeliveries:
+            "desc",
+        },
+      });
+
+    const leaderboard =
+      riders.map(
+        (rider, index) => ({
+          rank:
+            index + 1,
+
+          id:
+            rider.id,
+
+          name:
+            rider.name,
+
+          mobile:
+            rider.mobile,
+
+          rating:
+            rider.rating,
+
+          deliveries:
+            rider.completedDeliveries,
+
+          earnings:
+            rider.earnings,
+
+          status:
+            rider.status,
+
+          badge:
+            rider.rating >=
+            4.8
+              ? "ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â¡ Elite"
+              : rider.rating >=
+                4.5
+              ? "ÃƒÂ°Ã…Â¸Ã‚Â¥Ã‹â€  Pro"
+              : rider.rating >=
+                4
+              ? "ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â° Active"
+              : "ÃƒÂ¢Ã‚Â­Ã‚Â New",
+
+          performance:
+            rider.completedDeliveries >
+            300
+              ? "Excellent"
+              : rider.completedDeliveries >
+                150
+              ? "Good"
+              : "Average",
+        })
+      );
+
+    const topRider =
+      leaderboard[0] ||
+      null;
+
+    const highestRating =
+      [...leaderboard].sort(
+        (a, b) =>
+          b.rating -
+          a.rating
+      )[0] || null;
+
+    const highestEarning =
+      [...leaderboard].sort(
+        (a, b) =>
+          b.earnings -
+          a.earnings
+      )[0] || null;
+
+    return NextResponse.json({
+      success: true,
+
+      summary: {
+        totalRiders:
+          riders.length,
+
+        topRider,
+
+        highestRating,
+
+        highestEarning,
+      },
+
+      leaderboard,
+    });
+  } catch (error) {
+    console.error(
+      "LEADERBOARD ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed To Load Leaderboard",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-list\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-riders-list\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\admin-rider-wallet-transactions\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "API Ready"
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\ai-customer-churn\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "AI Customer Churn",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\ai-demand-forecast\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "AI Demand Forecast",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\ai-product-recommendations\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "AI Product Recommendations",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\ai-revenue-forecast\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "AI Revenue Forecast",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\ai-sales-coach\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "AI Sales Coach",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\churn-risk\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const customers =
+   await prisma.customer.findMany();
+
+  const churnRisk =
+   customers.filter(
+    (c:any)=>
+      Number(c.totalOrders || 0) === 0
+   ).length;
+
+  return NextResponse.json({
+   success:true,
+   churnRisk
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json({
+   success:false,
+   error:error?.message
+  },{status:500});
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\customers\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const totalCustomers =
+   await prisma.customer.count();
+
+  return NextResponse.json({
+   success:true,
+   totalCustomers
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json(
+   {
+    success:false,
+    error:error?.message
+   },
+   { status:500 }
+  );
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\inventory\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const products =
+   await prisma.product.findMany();
+
+  const totalProducts =
+   products.length;
+
+  const totalStock =
+   products.reduce(
+    (sum:any,p:any)=>
+      sum + Number(p.stock || 0),
+    0
+   );
+
+  return NextResponse.json({
+   success:true,
+   totalProducts,
+   totalStock
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json({
+   success:false,
+   error:error?.message
+  },{status:500});
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\orders\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const totalOrders =
+   await prisma.order.count();
+
+  const pendingOrders =
+   await prisma.order.count({
+    where:{
+     status:"PENDING"
+    }
+   });
+
+  const completedOrders =
+   await prisma.order.count({
+    where:{
+     status:"DELIVERED"
+    }
+   });
+
+  return NextResponse.json({
+   success:true,
+   totalOrders,
+   pendingOrders,
+   completedOrders
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json(
+   {
+    success:false,
+    error:error?.message
+   },
+   { status:500 }
+  );
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\overview\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const [
+   customers,
+   orders,
+   products
+  ] = await Promise.all([
+
+   prisma.customer.count(),
+
+   prisma.order.count(),
+
+   prisma.product.count()
+
+  ]);
+
+  return NextResponse.json({
+   success:true,
+   customers,
+   orders,
+   products
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json(
+   {
+    success:false,
+    error:error?.message
+   },
+   {
+    status:500
+   }
+  );
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\products\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const products =
+   await prisma.product.findMany({
+    take:10
+   });
+
+  return NextResponse.json({
+   success:true,
+   products
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json({
+   success:false,
+   error:error?.message
+  },{status:500});
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\repeat-customers\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const customers =
+   await prisma.customer.findMany();
+
+  const repeatCustomers =
+   customers.filter(
+    (c:any)=>
+      Number(c.totalOrders || 0) > 1
+   ).length;
+
+  return NextResponse.json({
+   success:true,
+   repeatCustomers,
+   totalCustomers:customers.length
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json({
+   success:false,
+   error:error?.message
+  },{status:500});
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\revenue\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const orders = await prisma.order.findMany();
+
+  const revenue =
+   orders.reduce(
+    (sum:any,order:any)=>
+      sum + Number(order.total || 0),
+    0
+   );
+
+  return NextResponse.json({
+   success:true,
+   revenue,
+   totalOrders:orders.length
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json(
+   {
+    success:false,
+    error:error?.message
+   },
+   { status:500 }
+  );
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\revenue-trends\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+
+ return NextResponse.json({
+  success:true,
+  trend:[
+   {month:"Jan",value:120000},
+   {month:"Feb",value:135000},
+   {month:"Mar",value:142000},
+   {month:"Apr",value:158000}
+  ]
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\analytics\segmentation\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+
+ try {
+
+  const totalCustomers =
+   await prisma.customer.count();
+
+  const vipCustomers =
+   await prisma.customer.count({
+    where:{
+     loyaltyPoints:{
+      gte:1000
+     }
+    }
+   });
+
+  return NextResponse.json({
+   success:true,
+   totalCustomers,
+   vipCustomers
+  });
+
+ } catch(error:any){
+
+  return NextResponse.json({
+   success:false,
+   error:error?.message
+  },{status:500});
+
+ }
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\audit-logs\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+
+ return NextResponse.json({
+  success:true,
+  logs:[
+   "Admin Login",
+   "Order Updated",
+   "Wallet Credited",
+   "Referral Applied"
+  ]
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\login\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Login API",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\logout\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { clearSessionCookie } from "@/lib/auth";
+
+export async function POST() {
+  const response = NextResponse.json({ success: true });
+
+  clearSessionCookie(response);
+
+  return response;
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\profile\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Profile API",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\refresh-token\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Refresh Token API",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\register\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    module: "Register API",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\staff-login\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { setSessionCookie, verifyPassword } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["SUPER_ADMIN", "PROCESSING"] as const;
+type AllowedRole = (typeof ALLOWED_ROLES)[number];
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const mobile = String(body?.mobile || "").replace(/\D/g, "");
+    const password = String(body?.password || "");
+    const role = String(body?.role || "") as AllowedRole;
+
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Enter a valid 10-digit mobile number.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid staff role.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!password) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const staff = await prisma.staffUser.findFirst({
+      where: {
+        mobile,
+        role,
+        active: true,
+      },
+    });
+
+    if (!staff) {
+      const count = await prisma.staffUser.count({
+        where: { role },
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: count === 0 ? "NO_ACCOUNT" : "INVALID_LOGIN",
+          message:
+            count === 0
+              ? "No account exists for this role yet. Create the first account."
+              : "Invalid mobile number or password.",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!verifyPassword(password, staff.passwordHash)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid mobile number or password.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const response = NextResponse.json({
+      success: true,
+      role: staff.role,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        mobile: staff.mobile,
+      },
+    });
+
+    setSessionCookie(response, {
+      kind: "staff",
+      id: staff.id,
+      role: staff.role,
+      name: staff.name,
+      mobile: staff.mobile,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("STAFF LOGIN ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Login failed.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auth\staff-setup\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["SUPER_ADMIN", "PROCESSING"] as const;
+type AllowedRole = (typeof ALLOWED_ROLES)[number];
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const name = String(body?.name || "").trim();
+    const mobile = String(body?.mobile || "").replace(/\D/g, "");
+    const password = String(body?.password || "");
+    const role = String(body?.role || "") as AllowedRole;
+
+    if (!name || name.length < 2) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Enter a valid name.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Enter a valid 10-digit mobile number.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!password || password.length < 4) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password must be at least 4 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid staff role.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const roleCount = await prisma.staffUser.count({
+      where: { role },
+    });
+
+    if (roleCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "The first account for this role already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const existingMobile = await prisma.staffUser.findUnique({
+      where: { mobile },
+    });
+
+    if (existingMobile) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This mobile number is already in use.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const staff = await prisma.staffUser.create({
+      data: {
+        name,
+        mobile,
+        passwordHash: hashPassword(password),
+        role,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        mobile: staff.mobile,
+        role: staff.role,
+      },
+    });
+  } catch (error) {
+    console.error("STAFF SETUP ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unable to create account.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\automation-rules\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  const data = await prisma.automationRule.findMany({
+    orderBy: {
+      id: "desc",
+    },
+  });
+
+  return NextResponse.json(data);
+}
+
+export async function POST(req: Request) {
+  const body = await req.json();
+
+  const item = await prisma.automationRule.create({
+    data: {
+      name: body.name,
+      trigger: body.trigger,
+      action: body.action,
+      active: body.active ?? true,
+    },
+  });
+
+  return NextResponse.json(item);
+}
+
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auto-reassign-orders\route.ts ==========
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const now = new Date();
+
+    const expiredAssignments =
+      await prisma.deliveryAssignment.findMany({
+        where: {
+          status: {
+            in: [
+              "Pending Acceptance",
+              "Assigned",
+            ],
+          },
+
+          pickupDeadline: {
+            not: null,
+            lt: now,
+          },
+        },
+
+        orderBy: {
+          assignedAt: "asc",
+        },
+      });
+
+    const results: any[] = [];
+
+    for (const assignment of expiredAssignments) {
+      const currentRider =
+        await prisma.deliveryBoy.findUnique({
+          where: {
+            id: assignment.deliveryBoyId,
+          },
+        });
+
+      const nextRider =
+        await prisma.deliveryBoy.findFirst({
+          where: {
+            approvalStatus:
+              "Approved",
+
+            id: {
+              not:
+                assignment.deliveryBoyId,
+            },
+
+            status: {
+              in: [
+                "Online",
+                "Available",
+                "Active",
+              ],
+            },
+          },
+
+          orderBy: {
+            completedDeliveries:
+              "desc",
+          },
+        });
+
+      if (nextRider) {
+        await prisma.deliveryAssignment.update({
+          where: {
+            id: assignment.id,
+          },
+
+          data: {
+            deliveryBoyId:
+              nextRider.id,
+
+            status:
+              "Pending Acceptance",
+
+            assignedAt:
+              new Date(),
+
+            pickupDeadline:
+              new Date(
+                Date.now() +
+                  180 * 1000
+              ),
+
+            autoReassigned:
+              true,
+
+            reassignedAt:
+              new Date(),
+
+            adminAlert:
+              true,
+
+            alertSent:
+              true,
+
+            reassignedCount:
+              assignment.reassignedCount +
+              1,
+          },
+        });
+
+        if (currentRider) {
+          await prisma.deliveryBoy.update({
+            where: {
+              id: currentRider.id,
+            },
+
+            data: {
+              rating:
+                currentRider.rating > 1
+                  ? currentRider.rating -
+                    0.2
+                  : 1,
+            },
+          });
+        }
+
+        results.push({
+          assignmentId:
+            assignment.id,
+
+          orderId:
+            assignment.orderId,
+
+          previousRider:
+            currentRider?.name,
+
+          newRider:
+            nextRider.name,
+
+          action:
+            "AUTO_REASSIGNED",
+        });
+      } else {
+        await prisma.deliveryAssignment.update({
+          where: {
+            id: assignment.id,
+          },
+
+          data: {
+            adminAlert: true,
+            alertSent: true,
+          },
+        });
+
+        results.push({
+          assignmentId:
+            assignment.id,
+
+          orderId:
+            assignment.orderId,
+
+          action:
+            "ADMIN_ALERT_ONLY",
+
+          message:
+            "No Approved Rider Available",
+        });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+
+      checked:
+        expiredAssignments.length,
+
+      processed:
+        results.length,
+
+      results,
+    });
+  } catch (error) {
+    console.error(
+      "AUTO REASSIGN ERROR",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        error:
+          "Auto Reassign Failed",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\auto-rider-assign\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function POST() {
+  return NextResponse.json({
+    success: true,
+    assigned: true
+  });
+}
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\business-health-score\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET(){
+
+ return NextResponse.json({
+  success:true,
+  score:88,
+  status:"Healthy",
+  revenueHealth:90,
+  customerHealth:86,
+  operationsHealth:88
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\business-kpi\route.ts ==========
+
+import { NextResponse } from "next/server";
+
+export async function GET(){
+
+ return NextResponse.json({
+  success:true,
+  revenue:425000,
+  expenses:286000,
+  profit:139000,
+  margin:32.7
+ });
+
+}
+
+
+
+
+
+
+
+========== FILE: D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\api\buy-again\[phone]\route.ts ==========
+

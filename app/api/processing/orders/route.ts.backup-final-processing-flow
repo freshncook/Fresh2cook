@@ -1,0 +1,572 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentSession } from "@/lib/auth";
+
+const TERMINAL_STATUSES = [
+  "Delivered",
+  "Cancelled",
+];
+
+const STARTABLE_STATUSES = [
+  "Pending",
+  "Confirmed",
+  "Paid",
+  "Payment Received",
+];
+
+async function requireProcessingStaff() {
+  const session = await getCurrentSession();
+
+  if (
+    !session ||
+    session.kind !== "staff" ||
+    String(session.role).toUpperCase() !== "PROCESSING"
+  ) {
+    return null;
+  }
+
+  return session;
+}
+
+export async function GET() {
+  try {
+    const session = await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const orders = await prisma.order.findMany({
+      where: {
+        status: {
+          notIn: TERMINAL_STATUSES,
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    const orderIds = orders.map(
+      (order) => order.id
+    );
+
+    const orderItems =
+      orderIds.length > 0
+        ? await prisma.orderItem.findMany({
+            where: {
+              orderId: {
+                in: orderIds,
+              },
+            },
+            orderBy: {
+              id: "asc",
+            },
+          })
+        : [];
+
+    const productIds = [
+      ...new Set(
+        orderItems.map(
+          (item) => item.productId
+        )
+      ),
+    ];
+
+    const products =
+      productIds.length > 0
+        ? await prisma.product.findMany({
+            where: {
+              id: {
+                in: productIds,
+              },
+            },
+            select: {
+              id: true,
+              name: true,
+              pack: true,
+            },
+          })
+        : [];
+
+    const productMap = new Map(
+      products.map((product) => [
+        product.id,
+        product,
+      ])
+    );
+
+    const itemsByOrder = new Map<
+      number,
+      Array<{
+        id: number;
+        productId: number;
+        productName: string;
+        pack: string;
+        quantity: number;
+        price: number;
+        total: number;
+        packed: boolean;
+      }>
+    >();
+
+    for (const item of orderItems) {
+      const product =
+        productMap.get(
+          item.productId
+        );
+
+      const mappedItem = {
+        id: item.id,
+        productId: item.productId,
+        productName:
+          product?.name ||
+          item.productName ||
+          "Product",
+        pack:
+          product?.pack ||
+          "-",
+        quantity: Number(
+          item.quantity || 0
+        ),
+        price: Number(
+          item.price || 0
+        ),
+        total: Number(
+          item.total || 0
+        ),
+        packed: Boolean(
+          item.packed
+        ),
+      };
+
+      const existing =
+        itemsByOrder.get(
+          item.orderId
+        ) || [];
+
+      existing.push(
+        mappedItem
+      );
+
+      itemsByOrder.set(
+        item.orderId,
+        existing
+      );
+    }
+
+    const enrichedOrders =
+      orders.map(
+        (order) => ({
+          ...order,
+          items:
+            itemsByOrder.get(
+              order.id
+            ) || [],
+        })
+      );
+
+    return NextResponse.json({
+      success: true,
+      orders: enrichedOrders,
+    });
+  } catch (error) {
+    console.error(
+      "PROCESSING ORDERS GET ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load processing orders",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: Request
+) {
+  try {
+    const session =
+      await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body =
+      await req.json();
+
+    const id = Number(
+      body?.id
+    );
+
+    const action = String(
+      body?.action || ""
+    ).trim();
+
+    /*
+     * --------------------------------------------------------
+     * PACK / UNPACK SINGLE ITEM
+     * --------------------------------------------------------
+     */
+    if (
+      action === "packItem"
+    ) {
+      const itemId = Number(
+        body?.itemId
+      );
+
+      const packed =
+        body?.packed === true;
+
+      if (
+        !Number.isInteger(
+          itemId
+        ) ||
+        itemId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid item ID is required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const item =
+        await prisma.orderItem.findUnique({
+          where: {
+            id: itemId,
+          },
+          select: {
+            id: true,
+            orderId: true,
+          },
+        });
+
+      if (!item) {
+        return NextResponse.json(
+          {
+            error:
+              "Order item not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id: item.orderId,
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        TERMINAL_STATUSES.includes(
+          order.status
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This order is already closed",
+          },
+          { status: 400 }
+        );
+      }
+
+      const updated =
+        await prisma.orderItem.update({
+          where: {
+            id: itemId,
+          },
+          data: {
+            packed,
+          },
+        });
+
+      return NextResponse.json({
+        success: true,
+        action: "packItem",
+        item: updated,
+      });
+    }
+
+    /*
+     * --------------------------------------------------------
+     * START PROCESSING
+     * --------------------------------------------------------
+     */
+    if (
+      action === "start"
+    ) {
+      if (
+        !Number.isInteger(
+          id
+        ) ||
+        id <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid order ID is required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        !STARTABLE_STATUSES.includes(
+          order.status
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `Order cannot be processed from status: ${order.status}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      /*
+       * All packing items must be checked
+       * before Process Order is accepted.
+       */
+      const items =
+        await prisma.orderItem.findMany({
+          where: {
+            orderId: id,
+          },
+          select: {
+            packed: true,
+          },
+        });
+
+      if (
+        items.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This order has no packing items",
+          },
+          { status: 400 }
+        );
+      }
+
+      const unpackedCount =
+        items.filter(
+          (item) =>
+            !item.packed
+        ).length;
+
+      if (
+        unpackedCount > 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `Please complete all packing items first. ${unpackedCount} item(s) still unchecked.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const now =
+        new Date();
+
+      const processingDeadline =
+        new Date(
+          now.getTime() +
+            30 * 60 * 1000
+        );
+
+      /*
+       * Session currently does not reliably expose
+       * staffId. Therefore processing is authorized
+       * by role and the order can proceed without
+       * blocking on staffId.
+       */
+      const rawSession =
+        session as {
+          staffId?: number;
+        };
+
+      const staffId =
+        Number(
+          rawSession.staffId
+        );
+
+      const updated =
+        await prisma.order.update({
+          where: {
+            id,
+          },
+          data: {
+            status:
+              "Processing",
+            processingStartedAt:
+              now,
+            processingDeadline,
+            processingUserId:
+              Number.isInteger(
+                staffId
+              ) &&
+              staffId > 0
+                ? staffId
+                : null,
+          },
+        });
+
+      return NextResponse.json({
+        success: true,
+        action: "start",
+        order: updated,
+      });
+    }
+
+    /*
+     * --------------------------------------------------------
+     * READY FOR DISPATCH
+     * --------------------------------------------------------
+     */
+    if (
+      action === "ready"
+    ) {
+      if (
+        !Number.isInteger(
+          id
+        ) ||
+        id <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid order ID is required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        order.status !==
+        "Processing"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only Processing orders can be marked Ready For Dispatch",
+          },
+          { status: 400 }
+        );
+      }
+
+      const now =
+        new Date();
+
+      const updated =
+        await prisma.order.update({
+          where: {
+            id,
+          },
+          data: {
+            status:
+              "Ready For Dispatch",
+            readyAt:
+              now,
+          },
+        });
+
+      return NextResponse.json({
+        success: true,
+        action: "ready",
+        order: updated,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Invalid processing action",
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error(
+      "PROCESSING PATCH ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update processing order",
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,149 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+
+export default function Page() {
+  const [assignmentId, setAssignmentId] = useState("");
+  const [otp, setOtp] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("assignmentId");
+
+    if (id) {
+      setAssignmentId(id);
+    }
+  }, []);
+
+  async function resendOtp() {
+    if (!assignmentId) {
+      setMessage("Assignment ID required");
+      return;
+    }
+
+    setResending(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-start-delivery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignmentId: Number(assignmentId),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMessage(data.error || "OTP Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“Ã Â¤Â¾ Ã Â¤Â¨Ã Â¤Â¹Ã Â¥â‚¬Ã Â¤â€š Ã Â¤Å“Ã Â¤Â¾ Ã Â¤Â¸Ã Â¤â€¢Ã Â¤Â¾");
+        return;
+      }
+
+      setMessage(
+        "Ã Â¤Â¨Ã Â¤Â¯Ã Â¤Â¾ OTP customer Ã Â¤â€¢Ã Â¥â€¹ Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“ Ã Â¤Â¦Ã Â¤Â¿Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤â€”Ã Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥Ë†Ã Â¥Â¤"
+      );
+    } catch {
+      setMessage("OTP Ã Â¤Â­Ã Â¥â€¡Ã Â¤Å“Ã Â¤Â¨Ã Â¥â€¡ Ã Â¤Â®Ã Â¥â€¡Ã Â¤â€š Ã Â¤Â¸Ã Â¤Â®Ã Â¤Â¸Ã Â¥ÂÃ Â¤Â¯Ã Â¤Â¾ Ã Â¤Â¹Ã Â¥ÂÃ Â¤Ë†");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  async function verify() {
+    if (!assignmentId || !otp) {
+      setMessage("OTP required");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/rider-complete-delivery", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignmentId: Number(assignmentId),
+          otp,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMessage(data.error || "Invalid OTP");
+        return;
+      }
+
+      setMessage("Delivered Successfully Ã¢Å“â€¦ Ã¢â€šÂ¹25 Earned");
+    } catch {
+      setMessage("Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 max-w-xl mx-auto">
+
+      <h1 className="text-3xl font-bold mb-6">
+        Verify Delivery OTP
+      </h1>
+
+      <input
+        className="border p-3 w-full rounded-xl mb-4"
+        placeholder="Assignment ID"
+        value={assignmentId}
+        onChange={(e) => setAssignmentId(e.target.value)}
+      />
+
+      <button
+        onClick={resendOtp}
+        disabled={resending}
+        className="w-full bg-orange-600 text-white p-3 rounded-xl font-semibold"
+      >
+        {resending ? "Sending..." : "Resend OTP"}
+      </button>
+
+      <input
+        className="border p-4 w-full rounded-xl mt-5 text-center text-2xl tracking-[0.5em]"
+        placeholder="OTP"
+        value={otp}
+        maxLength={4}
+        inputMode="numeric"
+        onChange={(e) =>
+          setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))
+        }
+      />
+
+      <button
+        onClick={verify}
+        disabled={loading}
+        className="mt-4 w-full bg-green-600 text-white p-3 rounded-xl font-semibold"
+      >
+        {loading
+          ? "Verifying..."
+          : "Verify OTP & Deliver"}
+      </button>
+
+      {message && (
+        <div className="mt-5 bg-white border rounded-xl p-4">
+          {message}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+
+

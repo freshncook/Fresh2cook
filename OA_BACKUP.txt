@@ -1,0 +1,274 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function OrderAssignmentsPage() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [riders, setRiders] = useState<any[]>([]);
+  const [selectedRider, setSelectedRider] = useState<
+    Record<number, number>
+  >({});
+  const [loading, setLoading] = useState(false);
+
+  async function loadData() {
+    try {
+      const res = await fetch(
+        "/api/admin-assign-order",
+        {
+          cache: "no-store",
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error(data);
+        return;
+      }
+
+      setOrders(
+        Array.isArray(data.orders)
+          ? data.orders
+          : []
+      );
+
+      setRiders(
+        Array.isArray(data.riders)
+          ? data.riders
+          : []
+      );
+    } catch (error) {
+      console.error(
+        "LOAD ERROR",
+        error
+      );
+    }
+  }
+
+  async function assign(
+    orderId: number
+  ) {
+    const riderId =
+      selectedRider[orderId];
+
+    if (!riderId) {
+      alert("Select Rider");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res =
+        await fetch(
+          "/api/admin-assign-order",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              orderId,
+              riderId,
+            }),
+          }
+        );
+
+      const data =
+        await res.json();
+
+      console.log(
+        "ASSIGN RESPONSE",
+        data
+      );
+
+      if (data.success) {
+        alert(
+          "Order Assigned Successfully\n\nAssignment ID: " +
+            data.assignment.id +
+            "\nRider ID: " +
+            data.assignment.deliveryBoyId
+        );
+
+        await loadData();
+      } else {
+        alert(
+          data.error ||
+            "Assignment Failed"
+        );
+      }
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Assignment Failed"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">
+          Order Assignments
+        </h1>
+
+        <button
+          onClick={loadData}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="p-4 text-left">
+                Order ID
+              </th>
+
+              <th className="p-4 text-left">
+                Customer
+              </th>
+
+              <th className="p-4 text-left">
+                Amount
+              </th>
+
+              <th className="p-4 text-left">
+                Status
+              </th>
+
+              <th className="p-4 text-left">
+                Rider
+              </th>
+
+              <th className="p-4 text-left">
+                Action
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {orders.length ===
+              0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="text-center p-10"
+                >
+                  No Orders Found
+                </td>
+              </tr>
+            )}
+
+            {orders.map(
+              (order: any) => (
+                <tr
+                  key={order.id}
+                  className="border-t"
+                >
+                  <td className="p-4">
+                    #{order.id}
+                  </td>
+
+                  <td className="p-4">
+                    {order.customer ||
+                      "Customer"}
+                  </td>
+
+                  <td className="p-4">
+                    â‚¹
+                    {order.amount ||
+                      0}
+                  </td>
+
+                  <td className="p-4">
+                    {order.status}
+                  </td>
+
+                  <td className="p-4">
+                    <select
+                      className="border p-2 rounded-lg w-full"
+                      value={
+                        selectedRider[
+                          order.id
+                        ] || ""
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setSelectedRider(
+                          {
+                            ...selectedRider,
+                            [
+                              order.id
+                            ]:
+                              Number(
+                                e.target
+                                  .value
+                              ),
+                          }
+                        )
+                      }
+                    >
+                      <option value="">
+                        Select Rider
+                      </option>
+
+                      {riders.map(
+                        (
+                          rider: any
+                        ) => (
+                          <option
+                            key={
+                              rider.id
+                            }
+                            value={
+                              rider.id
+                            }
+                          >
+                            {rider.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </td>
+
+                  <td className="p-4">
+                    <button
+                      disabled={
+                        loading
+                      }
+                      onClick={() =>
+                        assign(
+                          order.id
+                        )
+                      }
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg"
+                    >
+                      Assign
+                    </button>
+                  </td>
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+
+

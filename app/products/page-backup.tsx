@@ -1,0 +1,627 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  stock?: number;
+  image?: string;
+  category?: string;
+  pack?: string;
+};
+
+type CartItem = Product & {
+  qty: number;
+};
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cartCount, setCartCount] = useState(0);
+  const [qty, setQty] = useState<Record<number, number>>({});
+  const [search, setSearch] = useState("");
+  const [selectedPack, setSelectedPack] = useState<Record<number,string>>({});
+
+  useEffect(() => {
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    const searchParam =
+      params.get("search") || "";
+
+    setSearch(searchParam);
+
+    loadProducts();
+    loadCartCount();
+
+    const handleCartUpdated = () => {
+      loadCartCount();
+      syncQtyFromCart();
+    };
+
+    window.addEventListener(
+      "cartUpdated",
+      handleCartUpdated
+    );
+
+    window.addEventListener(
+      "storage",
+      handleCartUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "cartUpdated",
+        handleCartUpdated
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleCartUpdated
+      );
+    };
+  }, []);
+
+  async function loadProducts() {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "/api/products",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load products"
+        );
+      }
+
+      const data =
+        await response.json();
+
+      const list: Product[] =
+        Array.isArray(data)
+          ? data
+          : Array.isArray(
+              data.products
+            )
+          ? data.products
+          : Array.isArray(data.data)
+          ? data.data
+          : [];
+
+      setProducts(list);
+
+      const savedCart =
+        getCart();
+
+      const startingQty: Record<
+        number,
+        number
+      > = {};
+
+      list.forEach((product) => {
+        const existing =
+          savedCart.find(
+            (item) =>
+              Number(item.id) ===
+              Number(product.id)
+          );
+
+        startingQty[product.id] =
+          existing
+            ? Number(
+                existing.qty || 1
+              )
+            : 1;
+      });
+
+      setQty(startingQty);
+    } catch (error) {
+      console.error(
+        "Products load error:",
+        error
+      );
+
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getCart(): CartItem[] {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(
+          "freshcut-cart"
+        ) || "[]"
+      );
+
+      return Array.isArray(saved)
+        ? saved
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCart(
+    cart: CartItem[]
+  ) {
+    localStorage.setItem(
+      "freshcut-cart",
+      JSON.stringify(cart)
+    );
+
+    window.dispatchEvent(
+      new Event("cartUpdated")
+    );
+  }
+
+  function loadCartCount() {
+    const cart =
+      getCart();
+
+    setCartCount(
+      cart.length
+    );
+  }
+
+  function syncQtyFromCart() {
+    const cart =
+      getCart();
+
+    setQty((prev) => {
+      const next = {
+        ...prev,
+      };
+
+      products.forEach(
+        (product) => {
+          const existing =
+            cart.find(
+              (item) =>
+                Number(item.id) ===
+                Number(product.id)
+            );
+
+          next[product.id] =
+            existing
+              ? Number(
+                  existing.qty || 1
+                )
+              : Math.max(
+                  Number(
+                    next[
+                      product.id
+                    ] || 1
+                  ),
+                  1
+                );
+        }
+      );
+
+      return next;
+    });
+  }
+
+  function increase(
+    product: Product
+  ) {
+    const current = Number(
+      qty[product.id] || 1
+    );
+
+    const stock = Number(
+      product.stock || 0
+    );
+
+    if (
+      stock <= 0 ||
+      current >= stock
+    ) {
+      return;
+    }
+
+    setQty((prev) => ({
+      ...prev,
+      [product.id]:
+        current + 1,
+    }));
+  }
+
+  function decrease(
+    productId: number
+  ) {
+    const current = Number(
+      qty[productId] || 1
+    );
+
+    setQty((prev) => ({
+      ...prev,
+      [productId]:
+        Math.max(
+          current - 1,
+          1
+        ),
+    }));
+  }
+
+  function addToCart(
+    product: Product
+  ) {
+    try {
+      const stock = Number(
+        product.stock || 0
+      );
+
+      if (stock <= 0) {
+        return;
+      }
+
+      const cart =
+        getCart();
+
+      const selectedQty =
+        Math.max(
+          1,
+          Math.min(
+            Number(
+              qty[product.id] || 1
+            ),
+            stock
+          )
+        );
+
+      const currentPack =
+  selectedPack[product.id] ||
+  product.pack ||
+  "Piece";
+
+const existingIndex =
+  cart.findIndex(
+    (item) =>
+      Number(item.id) === Number(product.id) &&
+      item.pack === currentPack
+  );
+
+if (
+  existingIndex >= 0
+) {
+  const existingQty =
+    Number(
+      cart[
+        existingIndex
+      ].qty || 1
+    );
+
+  cart[
+    existingIndex
+  ] = {
+    ...cart[
+      existingIndex
+    ],
+    name: product.name,
+    category:
+      product.category,
+    price:
+(currentPack === "500g")
+? product.price * 2
+: (currentPack === "1kg")
+? product.price * 4
+: product.price,
+    stock: product.stock,
+    image: product.image,
+    pack:
+      currentPack,
+    qty: Math.min(
+      existingQty +
+        selectedQty,
+      stock
+    ),
+  };
+} else {
+  cart.push({
+    id: product.id,
+    name: product.name,
+    category:
+      product.category,
+    price:
+(currentPack === "500g")
+? product.price * 2
+: (currentPack === "1kg")
+? product.price * 4
+: product.price,
+    stock: product.stock,
+    image: product.image,
+    pack:
+      currentPack,
+    qty: selectedQty,
+  });
+}
+
+      saveCart(cart);
+
+      setQty((prev) => ({
+        ...prev,
+        [product.id]: 1,
+      }));
+    } catch (error) {
+      console.error(
+        "Add to cart error:",
+        error
+      );
+    }
+  }
+
+  const filteredProducts =
+    products.filter(
+      (product) =>
+        product.name
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          )
+    );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-sm font-semibold text-green-700">
+          Loading products...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-\[1600px\] mx-auto px-4 py-8 pb-32">
+
+        <div className="mb-8">
+          <h1 className="text-xl md:text-2xl font-bold">
+  Fresh2Cook
+</h1>
+
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+
+  <p className="text-gray-600">
+    Freshly packed vegetables, ready for your kitchen.</p>
+
+<div className="flex-1 max-w-md">
+<input
+type="text"
+placeholder="..."
+className="w-full border rounded-xl px-4 py-2"
+/>
+</div>
+
+<p>
+  </p>
+
+<div className="flex flex-wrap gap-3 mb-6 mt-4">
+<button className="px-5 py-2 bg-green-600 text-white rounded-2xl font-medium">All</button>
+<button className="px-5 py-2 border rounded-2xl">Vegetables</button>
+<button className="px-5 py-2 border rounded-2xl">Fruits</button>
+<button className="px-5 py-2 border rounded-2xl">Cut & Ready</button>
+<button className="px-5 py-2 border rounded-2xl">Leafy Greens</button>
+<button className="px-5 py-2 border rounded-2xl">Root Vegetables</button>
+<button className="px-5 py-2 border rounded-2xl">Exotic</button>
+<button className="px-5 py-2 border rounded-2xl">Herbs</button>
+<button className="px-5 py-2 border rounded-2xl">Seasonal</button>
+</div>
+
+
+  
+
+</div>
+        </div>
+
+        
+
+        {filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow p-10 text-center">
+            <p className="text-xl font-semibold">
+              No products found
+            </p>
+
+            {search && (
+              <p className="text-gray-500 mt-2">
+                No product matched "
+                {search}"
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 2xl:grid-cols-6 gap-4">
+            {filteredProducts.map(
+              (product) => {
+                const stock =
+                  Number(
+                    product.stock || 0
+                  );
+
+                const selectedQty =
+                  Number(
+                    qty[
+                      product.id
+                    ] || 1
+                  );
+
+                const isOutOfStock =
+                  stock <= 0;
+
+                return (
+                  <article
+                    key={product.id}
+                    className="bg-white rounded-2xl shadow-md border overflow-hidden"
+                  >
+                    <div className="aspect-square bg-slate-50 flex items-center justify-center overflow-hidden">
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={
+                            product.name
+                          }
+                          className="w-full h-full object-contain p-2 transition-transform duration-300 hover:scale-110"
+                        />
+                      ) : (
+                        <div className="text-gray-400">
+                          No Image
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      <h2 className="font-bold text-sm">
+                        {product.name}
+                      </h2>
+
+                      {product.pack && (
+    <div className="mt-2">
+      <div className="relative">
+  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
+    <span className="text-green-700 font-semibold">Pack:</span>
+  </span>
+
+  <select
+  className="w-full border rounded-lg pl-14 pr-3 py-2 text-sm"
+  value={selectedPack[product.id] || product.pack || "250g"}
+  onChange={(e)=>
+    setSelectedPack({
+      ...selectedPack,
+      [product.id]: e.target.value
+    })
+  }
+>
+  <option>250g</option>
+  <option>500g</option>
+  <option>1kg</option>
+  <option>1 Bunch</option>
+  <option>1 Pkt</option>
+  <option>Piece</option>
+</select>
+<span className="text-red-600 font-bold text-base">MRP</span>
+    </div>
+    </div>
+)}
+
+<div className="mt-2 rounded bg-gray-50 p-2 text-xs">
+
+<div className="flex justify-between">
+<span>MRP</span>
+<span className="line-through text-red-600 font-bold text-base">
+Rs 
+{Math.round(product.price*1.2)}
+</span>
+</div>
+
+<div className="flex justify-between mt-1">
+<span>Our Price</span>
+<span className="text-green-700 font-extrabold text-lg">
+?{product.price}
+</span>
+</div>
+
+<div className="flex justify-between mt-1">
+<span>Saving</span>
+<span className="text-red-600 font-extrabold text-lg">
+?{Math.round(product.price*0.2)}
+</span>
+</div>
+
+</div>
+
+                      <div className="flex items-center gap-2 mt-4">
+                        <div className="flex items-center border rounded-lg overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              decrease(
+                                product.id
+                              )
+                            }
+                            disabled={
+                              isOutOfStock ||
+                              selectedQty <=
+                                1
+                            }
+                            className="w-7 h-7 text-sm font-bold disabled:opacity-40"
+                          >
+                            
+                          </button>
+
+                          <span className="w-9 text-center font-semibold">
+                            {
+                              selectedQty
+                            }
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              increase(
+                                product
+                              )
+                            }
+                            disabled={
+                              isOutOfStock ||
+                              selectedQty >=
+                                stock
+                            }
+                            className="w-7 h-7 text-sm font-bold disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addToCart(
+                              product
+                            )
+                          }
+                          disabled={
+                            isOutOfStock
+                          }
+                          className="flex-1 h-7 rounded bg-green-600 text-white text-xs font-bold"
+                        >
+                          {isOutOfStock
+                            ? "SOLD OUT"
+                            : "ADD"}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+            )}
+          </div>
+        )}
+      </main>
+
+      <a
+        href="/cart"
+        className="fixed bottom-24 right-5 z-[100] flex items-center gap-2 rounded-full bg-green-600 px-5 py-3 text-white font-bold shadow-2xl"
+      >
+        <span className="text-xl">
+          
+        </span>
+
+        <span>
+          Cart ({cartCount})
+        </span>
+      </a>
+    </div>
+  );
+}
+
+
+

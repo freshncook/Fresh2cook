@@ -1,0 +1,659 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+
+type Product = {
+  id: number;
+  name: string;
+  category: string;
+  pack: string;
+  price: number;
+  stock: number;
+  image?: string | null;
+  description?: string | null;
+  bestSeller?: boolean;
+};
+
+export default function Fresh2CookLanding() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+const [selectedCategory, setSelectedCategory] = useState("All");
+const [showLeadPopup, setShowLeadPopup] = useState(false);
+const [showCashbackPopup, setShowCashbackPopup] = useState(true);
+  const [lead, setLead] = useState({
+    name: "",
+    phone: "",
+    area: "",
+    interest: "",
+  });
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  async function loadProducts() {
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      setProducts(data || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitLead(e: React.FormEvent) {
+    e.preventDefault();
+
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: lead.name,
+          phone: lead.phone,
+          area: lead.area,
+          source: "Landing Page",
+          interest: lead.interest,
+          status: "New",
+          value: 0,
+        }),
+      });
+
+      if (res.ok) {
+        alert("Lead Saved Successfully");
+
+        setLead({
+          name: "",
+          phone: "",
+          area: "",
+          interest: "",
+        });
+      } else {
+        alert("Unable to save lead");
+      }
+    } catch {
+      alert("Server Error");
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+
+      {/* HEADER */}
+
+      <header className="sticky top-0 z-50 bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+
+          <div className="flex items-center gap-3">
+            <img
+              src="/fresh2cook-logo.png"
+              alt="Fresh2Cook"
+              className="h-14"
+            />
+
+            <div>
+              <h2 className="font-bold text-xl">
+                Fresh2Cook
+              </h2>
+
+              <p className="text-xs text-gray-500">
+                Cut • Clean • Cook
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://wa.me/919999999999"
+            target="_blank"
+            className="bg-green-600 text-white px-5 py-2 rounded-xl"
+          >
+            WhatsApp Order
+          </a>
+        </div>
+      </header>
+
+      {/* HERO */}
+
+      <section className="bg-gradient-to-r from-green-50 to-orange-50">
+        <div className="max-w-7xl mx-auto px-4 py-20 grid md:grid-cols-2 gap-10 items-center">
+
+          <div>
+            <div className="inline-block bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+              Fresh • Hygienic • Ready To Cook
+            </div>
+
+            <h1 className="text-5xl font-extrabold leading-tight">
+              सब्जी काटने का झंझट खत्म,
+              <br />
+              खाना बनाने का मज़ा शुरू!
+            </h1>
+
+            <p className="mt-6 text-gray-600 text-lg">
+              ताज़ी, साफ़ और हाइजीनिक कटी हुई
+              सब्जियाँ सीधे आपके घर तक।
+            </p>
+
+            <div className="flex gap-4 mt-8 flex-wrap">
+              <a
+                href="#products"
+                className="bg-green-600 text-white px-6 py-3 rounded-xl"
+              >
+                Order Now
+              </a>
+
+              <a
+                href="https://wa.me/919999999999"
+                target="_blank"
+                className="bg-orange-500 text-white px-6 py-3 rounded-xl"
+              >
+                WhatsApp Order
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <img
+              src="/fresh2cook-logo.png"
+              alt="Fresh2Cook"
+              className="w-full max-w-md mx-auto"
+            />
+          </div>
+
+        </div>
+      </section>
+
+      {/* WHY US */}
+
+      <section className="py-16">
+        <div className="max-w-7xl mx-auto px-4">
+
+          <h2 className="text-4xl font-bold text-center mb-12">
+            Why Fresh2Cook?
+          </h2>
+
+          <div className="grid md:grid-cols-4 gap-6">
+
+            <div className="border rounded-2xl p-6">
+              <h3 className="font-bold mb-2">
+                Time Saving
+              </h3>
+              <p>
+                रोज़ 30-45 मिनट बचाइए।
+              </p>
+            </div>
+
+            <div className="border rounded-2xl p-6">
+              <h3 className="font-bold mb-2">
+                Ready To Cook
+              </h3>
+              <p>
+                धोई हुई और कटी हुई सब्जियाँ।
+              </p>
+            </div>
+
+            <div className="border rounded-2xl p-6">
+              <h3 className="font-bold mb-2">
+                Hygienic Packing
+              </h3>
+              <p>
+                Food Grade Packaging।
+              </p>
+            </div>
+
+            <div className="border rounded-2xl p-6">
+              <h3 className="font-bold mb-2">
+                Fresh Daily
+              </h3>
+              <p>
+                सुबह कटाई, शाम डिलीवरी।
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* LEAD FORM */}
+
+      <section className="bg-green-50 py-16">
+        <div className="max-w-3xl mx-auto px-4">
+
+          <h2 className="text-4xl font-bold text-center mb-8">
+            Request Callback
+          </h2>
+
+          <form
+            onSubmit={submitLead}
+            className="bg-white p-8 rounded-3xl shadow"
+          >
+
+            <div className="grid md:grid-cols-2 gap-4">
+
+              <input
+                required
+                placeholder="Name"
+                value={lead.name}
+                onChange={(e) =>
+                  setLead({
+                    ...lead,
+                    name: e.target.value,
+                  })
+                }
+                className="border p-3 rounded-xl"
+              />
+
+              <input
+                required
+                placeholder="Mobile"
+                value={lead.phone}
+                onChange={(e) =>
+                  setLead({
+                    ...lead,
+                    phone: e.target.value,
+                  })
+                }
+                className="border p-3 rounded-xl"
+              />
+
+              <input
+                placeholder="Area"
+                value={lead.area}
+                onChange={(e) =>
+                  setLead({
+                    ...lead,
+                    area: e.target.value,
+                  })
+                }
+                className="border p-3 rounded-xl"
+              />
+
+              <input
+                placeholder="Interest"
+                value={lead.interest}
+                onChange={(e) =>
+                  setLead({
+                    ...lead,
+                    interest: e.target.value,
+                  })
+                }
+                className="border p-3 rounded-xl"
+              />
+
+            </div>
+
+            <button
+              className="w-full bg-green-600 text-white py-3 rounded-xl mt-6"
+            >
+              Submit Lead
+            </button>
+
+          </form>
+        </div>
+      </section>
+
+      {/* PRODUCTS */}
+
+      <section
+        id="products"
+        className="py-16"
+      >
+        <div className="max-w-7xl mx-auto px-4">
+
+          <h2 className="text-4xl font-bold text-center mb-12">
+            Available Products
+          </h2>
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+  {["All","Vegetables","Fruits","Salads"].map((cat) => (
+    <button
+      key={cat}
+      onClick={() => setSelectedCategory(cat)}
+      className={`px-5 py-2 rounded-full ${
+        selectedCategory === cat
+          ? "bg-green-600 text-white"
+          : "bg-gray-200"
+      }`}
+    >
+      {cat}
+    </button>
+  ))}
+</div>
+
+{loading ? (
+  <div className="text-center">
+    Loading Products...
+  </div>
+) : (
+  <div className="grid md:grid-cols-4 gap-6">
+    {products
+  .filter(
+    (product) =>
+      selectedCategory === "All" ||
+      product.category === selectedCategory
+  )
+  .map((product: Product) => (
+      <div
+        key={product.id}
+        className="border rounded-2xl p-5 hover:shadow-lg transition"
+      >
+        <h3 className="font-bold">
+          {product.name}
+        </h3>
+
+        <p className="text-sm text-gray-500">
+          {product.pack}
+        </p>
+
+        <p className="text-green-600 font-bold text-xl mt-2">
+          ₹{product.price}
+        </p>
+
+        <button className="w-full mt-4 bg-green-600 text-white py-2 rounded-xl">
+          Add To Cart
+        </button>
+      </div>
+    ))}
+  </div>
+)}
+
+        </div>
+      </section>
+
+      {/* OFFERS */}
+
+      <section className="bg-orange-50 py-16">
+        
+
+        <div className="max-w-6xl mx-auto px-4">
+
+          <h2 className="text-4xl font-bold text-center mb-10">
+            Offers & Rewards
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+
+            <div className="bg-white p-6 rounded-2xl">
+              <h3 className="font-bold text-xl">
+                Free Delivery
+              </h3>
+
+              <p className="mt-3">
+                Free Delivery on ₹350+ Orders
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl">
+              <h3 className="font-bold text-xl">
+                Wallet Credit
+              </h3>
+
+              <p className="mt-3">
+                10% Credit on ₹500+ Orders
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl">
+              <h3 className="font-bold text-xl">
+                Referral Rewards
+              </h3>
+
+              <p className="mt-3">
+                Earn 10% Credit When Friend Orders
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* VIP CLUB */}
+
+      <section className="py-16">
+
+        <div className="max-w-4xl mx-auto px-4">
+
+          <div className="bg-green-600 text-white rounded-3xl p-10 text-center">
+
+            <h2 className="text-4xl font-bold">
+              Fresh2Cook VIP Club
+            </h2>
+
+            <p className="mt-4 text-xl">
+              ₹999 Monthly Membership
+            </p>
+
+            <div className="mt-8 grid md:grid-cols-2 gap-4">
+
+              <div>Unlimited Free Delivery</div>
+              <div>Priority Delivery</div>
+              <div>Weekly Offers</div>
+              <div>Birthday Reward</div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* DELIVERY AREAS */}
+
+      <section className="bg-gray-50 py-16">
+
+        <div className="max-w-6xl mx-auto px-4">
+
+          <h2 className="text-4xl font-bold text-center mb-8">
+            Delivery Areas
+          </h2>
+
+          <div className="grid md:grid-cols-4 gap-4">
+
+            <div className="bg-white p-5 rounded-xl">
+              Rohini
+            </div>
+
+            <div className="bg-white p-5 rounded-xl">
+              Pitampura
+            </div>
+
+            <div className="bg-white p-5 rounded-xl">
+              Shalimar Bagh
+            </div>
+
+            <div className="bg-white p-5 rounded-xl">
+              Punjabi Bagh
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* FOOTER */}
+
+      <footer className="relative overflow-hidden bg-gradient-to-r from-[#012d18] via-[#013b1f] to-[#0d5a2a] text-white">
+
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-20 text-6xl">🍃</div>
+          <div className="absolute top-32 right-40 text-5xl">🍃</div>
+          <div className="absolute bottom-20 left-1/3 text-4xl">🍃</div>
+        </div>
+
+        <div className="max-w-[1800px] mx-auto px-6 lg:px-12 py-14 relative z-10">
+
+          <div className="grid lg:grid-cols-4 gap-12 items-start">
+
+            <div>
+
+              <img
+                src="/fresh2cook-logo.png"
+                alt="Fresh2Cook"
+                className="h-24 mb-6"
+              />
+
+              <p className="text-lg leading-8 text-gray-200">
+                Fresh2Cook brings farm-fresh vegetables,
+                handpicked fruits and ready-to-cook convenience
+                directly to your doorstep.
+              </p>
+
+              <div className="grid grid-cols-4 gap-4 mt-8">
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-3xl mx-auto">
+                    🌿
+                  </div>
+                  <div className="text-sm mt-2">Farm Fresh</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-3xl mx-auto">
+                    🛡️
+                  </div>
+                  <div className="text-sm mt-2">Hygienic</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-3xl mx-auto">
+                    🚚
+                  </div>
+                  <div className="text-sm mt-2">Fast Delivery</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center text-3xl mx-auto">
+                    ❤️
+                  </div>
+                  <div className="text-sm mt-2">Trusted</div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div>
+
+              <h3 className="text-3xl font-bold mb-8">
+                Shop by Category
+              </h3>
+
+              <div className="space-y-5 text-xl">
+                <div>🥬 Fresh Vegetables</div>
+                <div>🍎 Fresh Fruits</div>
+                <div>🥗 Ready To Cook</div>
+                <div>📦 Combo Packs</div>
+                <div>🌱 Organic Products</div>
+              </div>
+
+            </div>
+
+            <div>
+
+              <h3 className="text-3xl font-bold mb-8">
+                Quick Links
+              </h3>
+
+              <div className="space-y-5 text-xl">
+                <div>🏠 Home</div>
+                <div>🛒 Shop</div>
+                <div>🎁 Offers</div>
+                <div>🚚 Order Tracking</div>
+                <div>❓ FAQ</div>
+              </div>
+
+            </div>
+
+            <div>
+
+              <h3 className="text-3xl font-bold mb-8">
+                Contact Us
+              </h3>
+
+              <div className="space-y-5 text-lg text-gray-200">
+                <div>📍 Dwarka, New Delhi</div>
+                <div>📞 +91 98110 01901</div>
+                <div>✉ support@fresh2cook.in</div>
+                <div>🕒 Mon - Sun : 8 AM - 8 PM</div>
+              </div>
+
+              <div className="flex gap-4 mt-8 text-4xl">
+                <a href="#">🟢</a>
+                <a href="#">📸</a>
+                <a href="#">📘</a>
+                <a href="#">▶️</a>
+                <a href="#">𝕏</a>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="bg-[#dff0d4] text-[#0b4d1d] py-8">
+
+          <div className="max-w-[1800px] mx-auto px-6">
+
+            <div className="grid md:grid-cols-4 gap-6 text-center">
+
+              <div>
+                <div className="text-5xl font-bold">5000+</div>
+                <div className="text-2xl">Happy Customers</div>
+              </div>
+
+              <div>
+                <div className="text-5xl font-bold">100+</div>
+                <div className="text-2xl">Products</div>
+              </div>
+
+              <div>
+                <div className="text-5xl font-bold">Same Day</div>
+                <div className="text-2xl">Delivery</div>
+              </div>
+
+              <div>
+                <div className="text-5xl font-bold">100%</div>
+                <div className="text-2xl">Fresh & Hygienic</div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="border-t border-green-800 py-6">
+
+          <div className="max-w-[1800px] mx-auto px-6 flex flex-col lg:flex-row justify-between items-center gap-4">
+
+            <div className="text-lg">
+              © 2026 Fresh2Cook. All Rights Reserved.
+            </div>
+
+            <div className="text-lg">
+              Made with ❤️ for Healthy Living
+            </div>
+
+            <div className="flex gap-8 text-lg">
+              <span>Privacy Policy</span>
+              <span>Terms & Conditions</span>
+              <span>Refund Policy</span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </footer>
+
+    </div>
+  );
+}

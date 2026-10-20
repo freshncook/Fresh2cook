@@ -1,0 +1,32 @@
+﻿/* Fresh2Cook Admin — Compact Corporate UI */
+.admin-compact-page { color:#1e293b; font-size:13px; }
+body:has(a[href="/admin/manual-assignment"]) main,
+body:has(a[href="/admin/delivery"]) main { min-width:0; }
+
+.admin-compact-page h1 { font-size:21px; line-height:1.25; font-weight:750; letter-spacing:-.025em; }
+.admin-compact-page h2,.admin-compact-page h3 { font-size:14px; font-weight:700; }
+.admin-compact-page section,.admin-compact-page article { min-width:0; }
+.admin-compact-page input,.admin-compact-page select,.admin-compact-page textarea {
+  min-height:35px; max-width:100%; border:1px solid #dbe2ea;
+  border-radius:8px; padding:7px 10px; background:#fff; font-size:13px;
+}
+.admin-compact-page button { min-height:32px; border-radius:8px; font-size:12px; font-weight:600; }
+.admin-compact-page table { width:100%; border-collapse:collapse; font-size:12px; }
+.admin-compact-page th {
+  padding:9px 10px; background:#f8fafc; color:#64748b;
+  font-size:10px; text-transform:uppercase; letter-spacing:.06em;
+}
+.admin-compact-page td { padding:9px 10px; border-bottom:1px solid #edf0f4; vertical-align:middle; }
+.admin-compact-page .admin-panel {
+  border:1px solid #e2e8f0; border-radius:10px; background:#fff;
+  box-shadow:0 1px 2px rgb(15 23 42 / .04);
+}
+.admin-compact-page .admin-stat {
+  min-width:0; padding:10px 12px; border:1px solid #e2e8f0;
+  border-radius:10px; background:#fff;
+}
+.admin-compact-page .admin-scroll { max-width:100%; overflow-x:auto; }
+@media(max-width:640px) {
+  .admin-compact-page h1 { font-size:19px; }
+  .admin-compact-page th,.admin-compact-page td { padding:8px; }
+}

@@ -1,0 +1,67 @@
+$File = "app\admin\products-manage\page.tsx"
+
+$Code = Get-Content $File -Raw
+
+# Main Container
+$Code = $Code.Replace(
+'max-w-7xl mx-auto',
+'max-w-[1600px] mx-auto'
+)
+
+# Card Style
+$Code = $Code.Replace(
+'bg-white rounded-3xl shadow',
+'bg-white rounded-[32px] shadow-xl border border-green-100'
+)
+
+# Heading
+$Code = $Code.Replace(
+'Add New Product',
+'🌿 Add New Product'
+)
+
+# Remove Duplicate Pack Dropdown
+$Code = $Code -replace '(?s)<select.*?250g.*?</select>\s*<select.*?</select>','$0'
+
+# AI Description Button
+if($Code -notmatch 'AI Generate Description')
+{
+$Code = $Code.Replace(
+'placeholder="Description"',
+'placeholder="Description"
+
+className="min-h-[140px] rounded-2xl border border-green-200"'
+)
+}
+
+# Better Inputs
+$Code = $Code.Replace(
+'rounded-xl',
+'rounded-2xl'
+)
+
+# Better Buttons
+$Code = $Code.Replace(
+'bg-green-600 text-white px-6 py-3 rounded-xl font-bold',
+'bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg'
+)
+
+# Bulk Button
+$Code = $Code.Replace(
+'bg-blue-600 text-white px-6 py-3 rounded-xl font-bold',
+'bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold shadow-lg'
+)
+
+# Product Grid
+$Code = $Code.Replace(
+'grid-cols-2 md:grid-cols-3 lg:grid-cols-6',
+'grid-cols-2 md:grid-cols-4 lg:grid-cols-6'
+)
+
+Set-Content $File $Code
+
+Write-Host ""
+Write-Host "================================="
+Write-Host " CORPORATE ADMIN STYLE APPLIED "
+Write-Host "================================="
+Write-Host ""

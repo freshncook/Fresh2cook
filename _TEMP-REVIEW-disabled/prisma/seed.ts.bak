@@ -1,0 +1,57 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  await prisma.product.deleteMany();
+
+  await prisma.product.createMany({
+    data: [
+      { name: "French Beans", category: "Beans", pack: "500g", price: 119, stock: 100 },
+      { name: "Drumstick", category: "Beans", pack: "500g", price: 119, stock: 100 },
+      { name: "Cluster Beans", category: "Beans", pack: "500g", price: 119, stock: 100 },
+      { name: "Chawli", category: "Beans", pack: "500g", price: 109, stock: 100 },
+      { name: "Matar", category: "Beans", pack: "500g", price: 39, stock: 100 },
+
+      { name: "Bottle Gourd", category: "Gourd", pack: "500g", price: 109, stock: 100 },
+      { name: "Pumpkin", category: "Gourd", pack: "500g", price: 89, stock: 100 },
+      { name: "Cucumber", category: "Gourd", pack: "500g", price: 79, stock: 100 },
+      { name: "Capsicum", category: "Gourd", pack: "500g", price: 109, stock: 100 },
+      { name: "Lady Finger", category: "Gourd", pack: "500g", price: 109, stock: 100 },
+
+      { name: "Carrot", category: "Root", pack: "500g", price: 99, stock: 100 },
+      { name: "Beetroot", category: "Root", pack: "500g", price: 99, stock: 100 },
+      { name: "Potato", category: "Root", pack: "1kg", price: 49, stock: 100 },
+      { name: "Ginger", category: "Root", pack: "250g", price: 99, stock: 100 },
+      { name: "Garlic", category: "Root", pack: "250g", price: 199, stock: 100 },
+
+      { name: "Cauliflower", category: "Daily Use", pack: "500g", price: 129, stock: 100 },
+      { name: "Cabbage", category: "Daily Use", pack: "500g", price: 109, stock: 100 },
+      { name: "Brinjal", category: "Daily Use", pack: "500g", price: 75, stock: 100 },
+      { name: "Sweet Corn", category: "Daily Use", pack: "500g", price: 89, stock: 100 },
+
+      { name: "Moong Sprout", category: "Sprouts", pack: "200g", price: 40, stock: 100 },
+      { name: "Chana Sprout", category: "Sprouts", pack: "200g", price: 40, stock: 100 },
+      { name: "Mix Sprout", category: "Sprouts", pack: "200g", price: 45, stock: 100 },
+
+      { name: "Pav Bhaji Mix", category: "Ready Mix", pack: "500g", price: 80, stock: 100 },
+      { name: "Pulav Mix", category: "Ready Mix", pack: "500g", price: 75, stock: 100 },
+      { name: "Chinese Mix", category: "Ready Mix", pack: "500g", price: 80, stock: 100 },
+
+      { name: "Button Mushroom", category: "Mushroom", pack: "200g", price: 75, stock: 100 },
+      { name: "Oyster Mushroom", category: "Mushroom", pack: "200g", price: 80, stock: 100 },
+
+      { name: "Onion", category: "Daily Use", pack: "1kg", price: 50, stock: 100 },
+      { name: "Tomato", category: "Daily Use", pack: "1kg", price: 45, stock: 100 }
+    ]
+  });
+
+  console.log("PRODUCTS SEEDED SUCCESSFULLY");
+}
+
+main()
+  .then(() => prisma.$disconnect())
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+  });

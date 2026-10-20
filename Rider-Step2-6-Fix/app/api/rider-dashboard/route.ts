@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+// DeliveryAssignment has no Prisma relation to Order in schema.prisma, so
+// `include: { order }` throws. Load the orders separately and attach them.
+async function attachOrders<T extends { orderId: number }>(assignments: T[]) {
+  const orderIds = [...new Set(assignments.map((a) => a.orderId))];
+  const orders = orderIds.length
+    ? await prisma.order.findMany({
+        where: { id: { in: orderIds } },
+        select: { id: true, customer: true, phone: true, address: true, amount: true, status: true },
+      })
+    : [];
+  const byId = new Map(orders.map((o) => [o.id, o]));
+  return assignments.map((a) => ({ ...a, order: byId.get(a.orderId) || null }));
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const token = req.cookies.get("f2c_rider_session")?.value;
+    const secret = process.env.RIDER_SESSION_SECRET;
+    if (!token || !secret || secret.length < 32)
+      return NextResponse.json({ success: false, error: "Please log in again" }, { status: 401 });
+
+    const parts = token.split(".");
+    if (parts.length !== 2)
+      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 });
+
+    const expected = createHmac("sha256", secret).update(parts[0]).digest();
+    const supplied = Buffer.from(parts[1], "base64url");
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected))
+      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 });
+
+    const payload = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+    if (!Number.isInteger(payload.riderId) || !Number.isFinite(payload.exp) || payload.exp <= Date.now())
+      return NextResponse.json({ success: false, error: "Session expired" }, { status: 401 });
+
+    const rider = await prisma.deliveryBoy.findUnique({
+      where: { id: payload.riderId },
+      select: { id: true, approvalStatus: true }
+    });
+    if (!rider || rider.approvalStatus !== "Approved")
+      return NextResponse.json({ success: false, error: "Rider account is not approved" }, { status: 403 });
+
+    const assignments = await prisma.deliveryAssignment.findMany({
+      where: { deliveryBoyId: rider.id },
+      orderBy: { assignedAt: "desc" }
+    });
+    const tasks = await attachOrders(assignments);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const activeStatuses = ["Accepted", "Picked Up", "Otp Sent", "Out For Delivery"];
+    const assigned = tasks.filter(t => !["Delivered", "Cancelled", "Rejected", "Failed"].includes(t.status));
+    const active = tasks.filter(t => activeStatuses.includes(t.status));
+    const delivered = tasks.filter(t => t.status === "Delivered" && t.deliveredAt && new Date(t.deliveredAt) >= today);
+    const earnings = delivered.reduce((sum, t) => sum + Number(t.earnings || 0), 0);
+
+    return NextResponse.json({
+      success: true,
+      assignedOrders: assigned.length,
+      activeDeliveries: active.length,
+      deliveredToday: delivered.length,
+      todayEarnings: earnings,
+      tasks
+    });
+  } catch (error) {
+    console.error("RIDER DASHBOARD ERROR:", error);
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+

@@ -1,0 +1,456 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentSession } from "@/lib/auth";
+
+const TERMINAL_STATUSES = [
+  "Delivered",
+  "Cancelled",
+];
+
+const STARTABLE_STATUSES = [
+  "Pending",
+  "Confirmed",
+  "Paid",
+  "Payment Received",
+];
+
+async function requireProcessingStaff() {
+  const session = await getCurrentSession();
+
+  if (
+    !session ||
+    session.kind !== "staff" ||
+    String(session.role).toUpperCase() !== "PROCESSING"
+  ) {
+    return null;
+  }
+
+  return session;
+}
+
+async function buildOrders() {
+  const orders = await prisma.order.findMany({
+    where: {
+      status: {
+        notIn: TERMINAL_STATUSES,
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const orderIds = orders.map(
+    (order) => order.id
+  );
+
+  const orderItems =
+    orderIds.length > 0
+      ? await prisma.orderItem.findMany({
+          where: {
+            orderId: {
+              in: orderIds,
+            },
+          },
+          orderBy: {
+            id: "asc",
+          },
+        })
+      : [];
+
+  const productIds = [
+    ...new Set(
+      orderItems.map(
+        (item) => item.productId
+      )
+    ),
+  ];
+
+  const products =
+    productIds.length > 0
+      ? await prisma.product.findMany({
+          where: {
+            id: {
+              in: productIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            pack: true,
+          },
+        })
+      : [];
+
+  const productMap = new Map(
+    products.map((product) => [
+      product.id,
+      product,
+    ])
+  );
+
+  const itemsByOrder = new Map<
+    number,
+    Array<{
+      id: number;
+      productId: number;
+      productName: string;
+      pack: string;
+      quantity: number;
+      price: number;
+      total: number;
+      packed: boolean;
+    }>
+  >();
+
+  for (const item of orderItems) {
+    const product =
+      productMap.get(
+        item.productId
+      );
+
+    const mapped = {
+      id: item.id,
+      productId: item.productId,
+      productName:
+        product?.name ||
+        item.productName ||
+        "Product",
+      pack:
+        product?.pack ||
+        "-",
+      quantity: Number(
+        item.quantity || 0
+      ),
+      price: Number(
+        item.price || 0
+      ),
+      total: Number(
+        item.total || 0
+      ),
+      packed: Boolean(
+        item.packed
+      ),
+    };
+
+    const existing =
+      itemsByOrder.get(
+        item.orderId
+      ) || [];
+
+    existing.push(mapped);
+
+    itemsByOrder.set(
+      item.orderId,
+      existing
+    );
+  }
+
+  return orders.map(
+    (order) => ({
+      ...order,
+      items:
+        itemsByOrder.get(
+          order.id
+        ) || [],
+    })
+  );
+}
+
+export async function GET() {
+  try {
+    const session =
+      await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          error:
+            "Processing login expired. Please login again.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const orders =
+      await buildOrders();
+
+    return NextResponse.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error(
+      "PROCESSING GET ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load processing orders",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: Request
+) {
+  try {
+    const session =
+      await requireProcessingStaff();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          error:
+            "Processing login expired. Please login again.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body =
+      await req.json();
+
+    const action = String(
+      body?.action || ""
+    ).trim();
+
+    const id = Number(
+      body?.id
+    );
+
+    /*
+     * ------------------------------------------------------
+     * PROCESS ORDER + COMPLETE PACKING
+     * ------------------------------------------------------
+     */
+    if (
+      action === "processOrder"
+    ) {
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid order ID is required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id,
+          },
+          select: {
+            id: true,
+            status: true,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        !STARTABLE_STATUSES.includes(
+          order.status
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              `Order cannot be processed from status: ${order.status}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const items =
+        await prisma.orderItem.findMany({
+          where: {
+            orderId: id,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (
+        items.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "No products found in this order.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const now =
+        new Date();
+
+      const processingDeadline =
+        new Date(
+          now.getTime() +
+            30 * 60 * 1000
+        );
+
+      /*
+       * Everything is committed together.
+       * No dependency on staffId.
+       */
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.orderItem.updateMany({
+            where: {
+              orderId: id,
+            },
+            data: {
+              packed: true,
+            },
+          });
+
+          await tx.order.update({
+            where: {
+              id,
+            },
+            data: {
+              status:
+                "Processing",
+              processingStartedAt:
+                now,
+              processingDeadline,
+              processingUserId:
+                null,
+            },
+          });
+        }
+      );
+
+      const updated =
+        await prisma.order.findUnique({
+          where: {
+            id,
+          },
+        });
+
+      return NextResponse.json({
+        success: true,
+        action:
+          "processOrder",
+        order: updated,
+      });
+    }
+
+    /*
+     * ------------------------------------------------------
+     * READY FOR DISPATCH
+     * ------------------------------------------------------
+     */
+    if (
+      action === "ready"
+    ) {
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Valid order ID is required",
+          },
+          { status: 400 }
+        );
+      }
+
+      const order =
+        await prisma.order.findUnique({
+          where: {
+            id,
+          },
+        });
+
+      if (!order) {
+        return NextResponse.json(
+          {
+            error:
+              "Order not found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (
+        order.status !==
+        "Processing"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Only Processing orders can be marked Ready For Dispatch.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const updated =
+        await prisma.order.update({
+          where: {
+            id,
+          },
+          data: {
+            status:
+              "Ready For Dispatch",
+            readyAt:
+              new Date(),
+          },
+        });
+
+      return NextResponse.json({
+        success: true,
+        action: "ready",
+        order: updated,
+      });
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Invalid processing action",
+      },
+      { status: 400 }
+    );
+  } catch (error) {
+    console.error(
+      "PROCESSING PATCH ERROR:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update processing order",
+      },
+      { status: 500 }
+    );
+  }
+}

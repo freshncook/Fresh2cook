@@ -1,0 +1,2 @@
+D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\delivery\orders\[id]\page.tsx
+D:\D Drive\Desktop\CRM\FreshCut-CRM-Professional-Starter\app\delivery\riders\[id]\page.tsx

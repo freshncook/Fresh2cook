@@ -1,0 +1,195 @@
+"use client";
+
+import Link from "next/link";
+import { ReactNode } from "react";
+import {
+  Layout,
+  Package,
+  ShoppingCart,
+  Users,
+  Truck,
+  Megaphone,
+  Wallet,
+  BarChart3,
+  Brain,
+  Settings,
+  Bell,
+  Menu,
+  ExternalLink,
+} from "lucide-react";
+
+export default function AdminLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-[#f4f7f9]">
+
+      {/* TOP HEADER */}
+
+      <header className="sticky top-0 z-50 bg-white border-b">
+
+        <div className="h-20 px-6 flex items-center justify-between">
+
+          <div className="flex items-center gap-5">
+
+            <button className="p-2 rounded-lg hover:bg-slate-100">
+              <Menu size={18} />
+            </button>
+
+            <Link
+              href="/admin"
+              className="text-3xl font-bold text-green-700"
+            >
+              <img src="/logo.png" alt="" className="h-10 w-auto" />
+            </Link>
+
+          </div>
+
+          <div className="flex items-center gap-4">
+
+            <Link
+              href="/admin"
+              className="bg-green-50 text-green-700 px-5 py-3 rounded-xl font-semibold"
+            >
+              
+            </Link>
+
+            <Link
+              href="/"
+              className="bg-green-700 text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2"
+            >
+              <ExternalLink size={18} />
+              View Website
+            </Link>
+
+            <button className="relative p-2">
+              <Bell size={18} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            </button>
+
+            <div className="flex items-center gap-3">
+
+              <div className="w-12 h-12 rounded-full bg-green-700 text-white flex items-center justify-center font-bold text-lg">
+                R
+              </div>
+
+              <div>
+                <div className="font-semibold">
+                  Ramakant Rao
+                </div>
+                <div className="text-sm text-slate-500">
+                  Administrator
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </header>
+
+      {/* NAVBAR */}
+
+      <div className="bg-white border-b">
+
+        <div className="px-6 h-16 flex items-center gap-2 overflow-x-auto">
+
+          <NavItem
+            href="/admin"
+            icon={<Layout size={20} />}
+            text=""
+          />
+
+          <NavItem
+            href="/admin/products"
+            icon={<Package size={20} />}
+            text="Products"
+          />
+
+          <NavItem
+            href="/admin/orders"
+            icon={<ShoppingCart size={20} />}
+            text="Orders"
+          />
+
+          <NavItem
+            href="/admin/customers"
+            icon={<Users size={20} />}
+            text="Customers"
+          />
+
+          <NavItem
+            href="/admin/delivery"
+            icon={<Truck size={20} />}
+            text="Delivery"
+          />
+
+          <NavItem
+            href="/admin/marketing"
+            icon={<Megaphone size={20} />}
+            text="Marketing"
+          />
+
+          <NavItem
+            href="/admin/finance"
+            icon={<Wallet size={20} />}
+            text="Finance"
+          />
+
+          <NavItem
+            href="/admin/analytics"
+            icon={<BarChart3 size={20} />}
+            text="Analytics"
+          />
+
+          <NavItem
+            href="/admin/ai-center"
+            icon={<Brain size={20} />}
+            text="AI Center"
+          />
+
+          <NavItem
+            href="/admin/settings"
+            icon={<Settings size={20} />}
+            text="Settings"
+          />
+
+        </div>
+
+      </div>
+
+      {/* PAGE */}
+
+      <main className="p-6">
+        {children}
+      </main>
+
+    </div>
+  );
+}
+
+function NavItem({
+  href,
+  icon,
+  text,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  text: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2 px-4 py-3 rounded-xl hover:bg-green-50 hover:text-green-700 transition-all whitespace-nowrap font-medium"
+    >
+      {icon}
+      {text}
+    </Link>
+  );
+}
+
+

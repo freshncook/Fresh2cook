@@ -1,0 +1,95 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { callerOf, ownsAssignment, ownsOrder } from "@/lib/caller";
+
+function generateOTP() {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const assignmentId = Number(body?.assignmentId);
+
+    if (!assignmentId) {
+      return NextResponse.json(
+        { success: false, error: "Assignment ID Required" },
+        { status: 400 }
+      );
+    }
+
+    const assignment = await prisma.deliveryAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+    if (assignment && !ownsAssignment(request, assignment.deliveryBoyId)) {
+      return NextResponse.json({ success: false, error: "Assignment Not Found" }, { status: 404 });
+    }
+
+    if (!assignment) {
+      return NextResponse.json(
+        { success: false, error: "Assignment Not Found" },
+        { status: 404 }
+      );
+    }
+
+    if (!["Accepted", "Picked Up"].includes(assignment.status)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order must be accepted or picked up before delivery",
+        },
+        { status: 400 }
+      );
+    }
+
+    const otp = generateOTP();
+
+    const updated = await prisma.deliveryAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: "Otp Sent",
+        otp,
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: assignment.orderId },
+      data: {
+        deliveryOtp: otp,
+        status: "Out For Delivery",
+      },
+    });
+
+    const order = await prisma.order.findUnique({
+      where: { id: assignment.orderId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      assignmentId,
+      status: updated.status,
+      customerNotification: order
+        ? {
+            customer: order.customer,
+            phone: order.phone,
+            message: `Fresh2Cook Delivery OTP: ${otp}. Please share this OTP with the rider after receiving your order.`,
+          }
+        : null,
+      message: "OTP sent to customer",
+    });
+  } catch (error: any) {
+    console.error("START DELIVERY ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || "Failed To Start Delivery",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+

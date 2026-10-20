@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f8faf8;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
+
+.offer-gradient {
+  background: linear-gradient(
+    135deg,
+    #2f8f46,
+    #45b45f
+  );
+}
+
+.hero-gradient {
+  background: linear-gradient(
+    135deg,
+    #2f8f46,
+    #1f6d34
+  );
+}
+
+.card-shadow {
+  box-shadow:
+    0 10px 30px
+    rgba(0, 0, 0, 0.08);
+}
+
+.category-card {
+  transition: 0.2s;
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+}
+
+.product-card {
+  transition: 0.2s;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+}
+
+.whatsapp-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 90px;
+  z-index: 999;
+}
+
+.whatsapp-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #25d366;
+  color: white;
+  font-size: 28px;
+  box-shadow:
+    0 10px 25px
+    rgba(37, 211, 102, 0.35);
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.deal-badge {
+  background: #e53935;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.price-old {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.price-new {
+  color: #2f8f46;
+  font-weight: 700;
+}
+
+.bottom-space {
+  height: 90px;
+}

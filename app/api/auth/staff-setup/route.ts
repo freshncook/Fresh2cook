@@ -1,0 +1,120 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { hashPassword } from "@/lib/auth";
+
+const ALLOWED_ROLES = ["SUPER_ADMIN", "PROCESSING"] as const;
+type AllowedRole = (typeof ALLOWED_ROLES)[number];
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+
+    const name = String(body?.name || "").trim();
+    const mobile = String(body?.mobile || "").replace(/\D/g, "");
+    const password = String(body?.password || "");
+    const role = String(body?.role || "") as AllowedRole;
+
+    if (!name || name.length < 2) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Enter a valid name.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Enter a valid 10-digit mobile number.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!password || password.length < 4) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password must be at least 4 characters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid staff role.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const roleCount = await prisma.staffUser.count({
+      where: { role },
+    });
+
+    if (roleCount > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "The first account for this role already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const existingMobile = await prisma.staffUser.findUnique({
+      where: { mobile },
+    });
+
+    if (existingMobile) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This mobile number is already in use.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const staff = await prisma.staffUser.create({
+      data: {
+        name,
+        mobile,
+        passwordHash: hashPassword(password),
+        role,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        mobile: staff.mobile,
+        role: staff.role,
+      },
+    });
+  } catch (error) {
+    console.error("STAFF SETUP ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unable to create account.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+

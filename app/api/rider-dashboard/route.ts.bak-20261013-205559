@@ -1,0 +1,33 @@
+﻿import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(){
+
+ const riders =
+  await prisma.deliveryBoy.findMany();
+
+ const earnings =
+  riders.reduce(
+   (sum,r)=>sum+(r.earnings||0),
+   0
+  );
+
+ const deliveries =
+  riders.reduce(
+   (sum,r)=>sum+(r.completedDeliveries||0),
+   0
+  );
+
+ return NextResponse.json({
+  success:true,
+  earnings,
+  deliveries,
+  riders:riders.length
+ });
+
+}
+
+
+
+
+

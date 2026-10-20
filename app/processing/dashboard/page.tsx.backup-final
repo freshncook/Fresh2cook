@@ -1,0 +1,271 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function ProcessingDashboard() {
+
+  const [orders,setOrders] = useState<any[]>([]);
+  const [loading,setLoading] = useState(true);
+
+  async function loadOrders() {
+
+    try {
+
+      const res = await fetch(
+        "/api/processing/orders",
+        {
+          cache:"no-store"
+        }
+      );
+
+      const data = await res.json();
+
+      setOrders(
+        Array.isArray(data)
+          ? data
+          : data.orders || []
+      );
+
+    } catch {
+
+      setOrders([]);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+  }
+
+  useEffect(()=>{
+    loadOrders();
+  },[]);
+
+  async function updateStep(
+    orderId:number,
+    action:string
+  ){
+
+    await fetch(
+      "/api/processing/orders",
+      {
+        method:"PATCH",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          orderId,
+          action
+        })
+      }
+    );
+
+    loadOrders();
+  }
+
+  return (
+    <div className="p-4 md:p-6 bg-slate-50 min-h-screen">
+
+      <div className="mb-4 flex items-center justify-between">
+
+        <div>
+
+          <h1 className="text-2xl font-bold">
+            Processing Dashboard
+          </h1>
+
+          <p className="text-sm text-slate-500">
+            Live Order Processing
+          </p>
+
+        </div>
+
+        <button
+          onClick={loadOrders}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white"
+        >
+          Refresh
+        </button>
+
+      </div>
+
+      {loading && (
+        <div className="rounded-xl bg-white p-4 border">
+          Loading...
+        </div>
+      )}
+
+      <div className="grid gap-3">
+
+        {orders.map((order:any)=>(
+
+          <div
+            key={order.id}
+            className="rounded-xl border bg-white p-4 shadow-sm"
+          >
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+
+              <div>
+
+                <div className="font-bold">
+                  Order #{order.id}
+                </div>
+
+                <div className="text-sm text-slate-500">
+                  {order.customer}
+                </div>
+
+              </div>
+
+              <div className="text-green-600 font-semibold">
+                {order.status}
+              </div>
+
+            </div>
+
+            <div className="mt-3 grid md:grid-cols-4 gap-2 text-sm">
+
+              <div>
+                <b>Phone:</b> {order.phone}
+              </div>
+
+              <div>
+                <b>Amount:</b> ?{order.amount}
+              </div>
+
+              <div>
+                <b>Items:</b> {order.items?.length || 0}
+              </div>
+
+              <div>
+                <b>Step:</b> {order.processingStep || 0}
+              </div>
+
+            </div>
+
+            <div className="mt-3 overflow-auto">
+
+              <table className="w-full text-sm">
+
+                <thead>
+
+                  <tr className="border-b">
+
+                    <th className="text-left py-2">
+                      Product
+                    </th>
+
+                    <th className="text-left py-2">
+                      Qty
+                    </th>
+
+                    <th className="text-left py-2">
+                      Pack
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {(order.items || []).map(
+                    (item:any)=>(
+                      <tr key={item.id}>
+
+                        <td className="py-1">
+                          {item.productName}
+                        </td>
+
+                        <td className="py-1">
+                          {item.quantity}
+                        </td>
+
+                        <td className="py-1">
+                          {item.pack}
+                        </td>
+
+                      </tr>
+                    )
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+
+              <button
+                onClick={()=>
+                  updateStep(
+                    order.id,
+                    "accept"
+                  )
+                }
+                className="rounded-lg bg-blue-600 px-3 py-2 text-white"
+              >
+                Accept
+              </button>
+
+              <button
+                onClick={()=>
+                  updateStep(
+                    order.id,
+                    "prepare"
+                  )
+                }
+                className="rounded-lg bg-amber-500 px-3 py-2 text-white"
+              >
+                Prepared
+              </button>
+
+              <button
+                onClick={()=>
+                  updateStep(
+                    order.id,
+                    "crosscheck"
+                  )
+                }
+                className="rounded-lg bg-purple-600 px-3 py-2 text-white"
+              >
+                Cross Check
+              </button>
+
+              <button
+                onClick={()=>
+                  updateStep(
+                    order.id,
+                    "sticker"
+                  )
+                }
+                className="rounded-lg bg-pink-600 px-3 py-2 text-white"
+              >
+                Sticker
+              </button>
+
+              <button
+                onClick={()=>
+                  updateStep(
+                    order.id,
+                    "pack"
+                  )
+                }
+                className="rounded-lg bg-green-600 px-3 py-2 text-white"
+              >
+                Packed
+              </button>
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+  );
+}

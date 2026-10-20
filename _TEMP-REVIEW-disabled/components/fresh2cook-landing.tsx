@@ -1,0 +1,535 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+
+type BestSellerProduct = {
+  id: number;
+  name: string;
+  image?: string | null;
+  bestSeller?: boolean;
+  active?: boolean;
+};
+
+export default function Fresh2CookLanding() {
+  const [categories, setCategories] = useState<any[]>([]);
+
+useEffect(() => {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem("freshcut-categories") || "[]"
+    );
+
+    if (Array.isArray(saved) && saved.length > 0) {
+      setCategories(saved);
+    }
+  } catch {
+    setCategories([]);
+  }
+}, []);
+
+  const fallbackProducts: BestSellerProduct[] = [
+    { id: 1, name: "Tomato", image: "/Tomato.png" },
+    { id: 2, name: "Potato", image: "/Aloo.png" },
+    { id: 3, name: "Bhindi", image: "/Bhindi.png" },
+    { id: 4, name: "Carrot", image: "/Carrot Full.png" },
+    { id: 5, name: "Lemon", image: "/Lemon.png" },
+    { id: 6, name: "Cucumber", image: "/Kheera.png" },
+    { id: 7, name: "Pudina", image: "/Pudina.png" },
+    { id: 8, name: "Onion", image: "/Onion.png" },
+    { id: 9, name: "Capsicum", image: "/Capsicum.png" },
+    { id: 10, name: "Cabbage", image: "/Cabbage.png" },
+    { id: 11, name: "Cauliflower", image: "/Cauliflower.png" },
+    { id: 12, name: "Beans", image: "/Beans.png" },
+  ];
+
+  const [bestSellers, setBestSellers] =
+    useState<BestSellerProduct[]>(fallbackProducts);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadBestSellers() {
+      try {
+        const response = await fetch(
+          "/api/products",
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        const selected = Array.isArray(data)
+          ? data
+              .filter(
+                (product: BestSellerProduct) =>
+                  product.active !== false &&
+                  product.bestSeller === true
+              )
+              .slice(0, 12)
+          : [];
+
+        if (active && selected.length > 0) {
+          setBestSellers(selected);
+        }
+      } catch (error) {
+        console.error(
+          "BEST SELLERS LOAD ERROR:",
+          error
+        );
+      }
+    }
+
+    loadBestSellers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <main className="bg-[#e8edf2]">
+
+      {/* HERO */}
+
+      <section className="relative overflow-hidden bg-gradient-to-r from-[#dff3e2] to-[#eef7ef]">
+
+        <div className="max-w-[1215px] mx-auto px-0 py-0">
+
+          <div className="-mx-8">
+
+  <a href="/products">
+  <img
+    src="/hero-banner.png.png"
+    alt="Fresh2Cook Hero"
+    className="w-full rounded-[15px] shadow-xl cursor-pointer"
+  />
+</a>
+
+</div>
+
+
+        </div>
+
+      </section>
+
+      
+      
+      {/* CATEGORIES */}
+
+      <section className="max-w-[1500px] mx-auto px-6 pt-4 pb-0">
+
+        <h2 className="text-2xl md:text-3xl font-bold text-[#0f172a] border-l-4 border-green-600 pl-3">
+  Shop By Category
+</h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+
+          {categories.map((cat: any) => (
+  <a
+    key={cat.id || cat.name}
+    href="/categories"
+    className="block bg-white rounded-xl p-3 text-center shadow hover:shadow-xl transition cursor-pointer"
+  >
+    <img
+      src={cat.image || "/placeholder-product.png"}
+      alt={cat.name}
+      className="w-full h-40 object-contain"
+    />
+
+    <div className="mt-4 font-bold">
+      {cat.name}
+    </div>
+  </a>
+))}
+  
+
+        </div>
+
+      </section>
+
+      {/* BEST SELLERS - Admin Product Image + Add to Best Sellers; max 12 */}
+
+<section className="max-w-[1500px] mx-auto px-6 pt-0 pb-6 -mt-1">
+
+  <div className="flex items-center justify-between mb-2">
+
+    <h2 className="text-2xl md:text-3xl font-bold text-[#0f172a] border-l-4 border-green-600 pl-3">
+      Best Sellers
+    </h2>
+
+    <a
+      href="/products"
+      className="text-green-700 font-semibold hover:text-green-800"
+    >
+      View All →
+    </a>
+
+  </div>
+
+  <div className="bg-[#eef4f7] rounded-xl p-3 shadow-sm">
+
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+
+      {bestSellers.map((item) => (
+
+        <a
+          key={item.name}
+          href={`/products?search=${encodeURIComponent(item.name)}`}
+          className="group"
+        >
+
+          <div className="bg-white rounded-xl p-4 shadow hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+
+            <img
+              src={
+                item.image?.trim()
+                  ? item.image
+                  : "/placeholder-product.png"
+              }
+              alt={item.name}
+              className="w-full h-36 object-contain group-hover:scale-110 transition duration-300"
+              onError={(event) => {
+                event.currentTarget.src =
+                  "/placeholder-product.png";
+              }}
+            />
+
+          </div>
+
+        </a>
+
+      ))}
+
+    </div>
+
+  </div>
+
+</section>      
+      {/* REFER + DELIVERY BANNER */}
+
+<section className="max-w-[1500px] mx-auto px-6 py-3">
+
+  <div className="relative overflow-hidden rounded-[24px] shadow-sm">
+
+    <img
+      src="/Refer & earn.png.png"
+      alt="Refer & Earn"
+      className="w-full h-auto object-contain"
+    />
+
+    {/* REFER AREA */}
+
+    <a
+      href="/refer"
+      className="absolute left-0 top-0 h-full w-[65%] z-10"
+      aria-label="Refer & Earn"
+    />
+
+    {/* DELIVERY AREA */}
+
+    <a
+      href="/delivery"
+      className="absolute right-0 top-0 h-full w-[35%] z-10"
+      aria-label="Check Delivery"
+    />
+
+    {/* SHARE NOW BUTTON */}
+
+    <a
+      href="https://wa.me/919811001901"
+      target="_blank"
+      rel="noreferrer"
+      className="absolute left-[18%] bottom-[18%] w-[18%] h-[16%] z-30"
+      aria-label="Share Now"
+    />
+
+    {/* PINCODE BOX */}
+
+    <a
+      href="/delivery"
+      className="absolute right-[16%] bottom-[18%] w-[22%] h-[16%] z-30"
+      aria-label="Enter Pincode"
+    />
+
+    {/* CHECK NOW BUTTON */}
+
+    <a
+      href="/delivery"
+      className="absolute right-[2%] bottom-[18%] w-[12%] h-[16%] z-30"
+      aria-label="Check Now"
+    />
+
+    {/* WHATSAPP */}
+
+    <a
+      href="https://wa.me/919811001901"
+      target="_blank"
+      rel="noreferrer"
+      className="absolute left-[46%] bottom-[15%] w-[4%] h-[12%] z-20"
+    />
+
+    {/* INSTAGRAM */}
+
+    <a
+      href="https://www.instagram.com/fresh2cook2026"
+      target="_blank"
+      rel="noreferrer"
+      className="absolute left-[52%] bottom-[15%] w-[4%] h-[12%] z-20"
+    />
+
+    {/* FACEBOOK */}
+
+    <a
+      href="https://facebook.com/fresh2cook2026"
+      target="_blank"
+      rel="noreferrer"
+      className="absolute left-[58%] bottom-[15%] w-[4%] h-[12%] z-20"
+    />
+
+  </div>
+
+</section>
+
+
+      {/* CUSTOMER REVIEWS */}
+
+<section className="max-w-[1500px] mx-auto px-6 py-8">
+
+  <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[#0f172a] border-l-4 border-green-600 pl-3 mb-5">
+    Our Customers Say
+  </h2>
+
+  <div className="grid md:grid-cols-3 gap-6">
+
+    <div className="bg-white p-6 rounded-xl shadow">
+      <div className="text-yellow-500 text-xl mb-3">
+        ⭐⭐⭐⭐⭐
+      </div>
+      <p>
+        Fresh vegetables and very fast delivery.
+      </p>
+      <div className="font-bold mt-4">
+        Rajesh Sharma
+      </div>
+    </div>
+
+    <div className="bg-white p-6 rounded-xl shadow">
+      <div className="text-yellow-500 text-xl mb-3">
+        ⭐⭐⭐⭐⭐
+      </div>
+      <p>
+        Excellent quality and hygienic packing.
+      </p>
+      <div className="font-bold mt-4">
+        Priya Verma
+      </div>
+    </div>
+
+    <div className="bg-white p-6 rounded-xl shadow">
+      <div className="text-yellow-500 text-xl mb-3">
+        ⭐⭐⭐⭐⭐
+      </div>
+      <p>
+        Best Ready To Cook service in Delhi.
+      </p>
+      <div className="font-bold mt-4">
+        Amit Kumar
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+      {/* FOOTER */}
+
+<footer className="bg-[#0f172a] text-white">
+
+  <div className="max-w-[1500px] mx-auto px-6 py-4">
+
+    <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-8 items-start">
+
+      {/* LOGO */}
+
+      <div>
+
+        <img
+          src="/fresh2cook-logo.png"
+          alt="Fresh2Cook"
+          className="h-18 mb-4"
+        />
+
+        <p className="text-gray-300 text-sm leading-7 max-w-[280px]">
+          Fresh vegetables, fruits and ready-to-cook products delivered directly to your doorstep.
+        </p>
+
+      </div>
+
+      {/* CATEGORIES */}
+
+      <div>
+
+        <h3 className="font-bold text-lg mb-3">
+          Categories
+        </h3>
+
+        <div className="space-y-2 text-sm text-gray-300">
+          <a href="/category/vegetables" className="block hover:text-white">Vegetables</a>
+          <a href="/category/fruits" className="block hover:text-white">Fresh Fruits</a>
+          <a href="/category/leafy-greens" className="block hover:text-white">Leafy Greens</a>
+          <a href="/category/ready-to-cook" className="block hover:text-white">Ready To Cook</a>
+          <a href="/category/combos" className="block hover:text-white">Combos</a>
+        </div>
+
+      </div>
+      {/* QUICK LINKS */}
+
+<div>
+
+  <h3 className="font-bold text-lg mb-3">
+    Quick Links
+  </h3>
+
+  <div className="space-y-2 text-sm text-gray-300">
+
+    <a href="/disclaimer" className="block hover:text-white">
+      Disclaimer
+    </a>
+
+    <a href="/privacy-policy" className="block hover:text-white">
+      Privacy Policy
+    </a>
+
+    <a href="/terms-conditions" className="block hover:text-white">
+      Terms & Conditions
+    </a>
+
+    <a href="/policies-compliances" className="block hover:text-white">
+      Policies & Compliances
+    </a>
+
+    <a href="/faqs" className="block hover:text-white">
+      FAQs
+    </a>
+
+    <a href="/return-policy" className="block hover:text-white">
+      Refund Policy
+    </a>
+
+  </div>
+
+</div>
+
+      {/* CONTACT */}
+
+      <div>
+
+        <h3 className="font-bold text-lg mb-3">
+          Contact Us
+        </h3>
+
+        <div className="space-y-3 text-gray-300">
+
+          <div>Village Pochan Pur, Dwarka, New Delhi 110078</div>
+
+          <div>
+            <a href="tel:+919811001901">
+              +91 98110 01901
+            </a>
+          </div>
+
+          <div>
+            <a href="mailto:support@fresh2cook.in">
+              support@fresh2cook.in
+              <div className="flex gap-4 mt-4">
+
+  <a
+    href="https://wa.me/919811001901"
+    target="_blank"
+  >
+    <img
+      src="/whatsapp-logo.png.png"
+      className="w-8 h-8"
+      alt="WhatsApp"
+    />
+  </a>
+
+  <a
+    href="https://www.instagram.com/fresh2cook2026"
+    target="_blank"
+  >
+    <img
+      src="/instagram.png.png"
+      className="w-8 h-8"
+      alt="Instagram"
+    />
+  </a>
+
+  <a
+    href="https://facebook.com/fresh2cook2026"
+    target="_blank"
+  >
+    <img
+      src="/facebook.png.png"
+      className="w-8 h-8"
+      alt="Facebook"
+    />
+  </a>
+
+</div>
+            </a>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* DOWNLOAD APP */}
+
+      <div>
+
+        <h3 className="font-bold text-xl mb-4">
+          Download App
+        </h3>
+
+        <img
+          src="/app-download.png.png"
+          alt="Download App"
+          className="w-36 object-contain"
+        />
+
+      </div>
+
+      {/* BASKET */}
+
+      <div className="flex items-start justify-center">
+
+        <img
+          src="/basket.png.png"
+          alt="Basket"
+          className="h-55 object-contain"
+        />
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div className="border-t border-white/10 py-5 text-center text-gray-300">
+    © 2026 Fresh2Cook • Fresh • Clean • Ready To Cook
+  </div>
+
+</footer>
+
+      {/* WHATSAPP */}
+
+
+    </main>
+  );
+}
+
+
+
+

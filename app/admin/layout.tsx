@@ -1,0 +1,107 @@
+"use client";
+import "./admin-compact.css";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import AdminUserBadge from "@/components/admin/admin-user-badge";
+
+const groups = [
+  { title: "OVERVIEW", links: [
+    ["Dashboard", "/admin"],
+    ["People (KYC)", "/admin/people"],
+  ]},
+  { title: "1 · CUSTOMERS", links: [
+    ["Orders", "/admin/orders"],
+    ["Customers", "/admin/customers"],
+    ["Products", "/admin/products-manage"],
+    ["Categories", "/admin/categories"],
+  ]},
+  { title: "2 · PROCESSING STAFF", links: [
+    ["Processing", "/processing/dashboard"],
+    ["Staff KYC & Wallet", "/admin/people?tab=staff"],
+    ["Staff & Supplies", "/admin/supplies"],
+    ["Inventory", "/admin/inventory"],
+  ]},
+  { title: "3 · RIDERS", links: [
+    ["Manual Assignment", "/admin/manual-assignment"],
+    ["Delivery Control", "/admin/delivery"],
+    ["Rider KYC", "/admin/people?tab=riders"],
+    ["Rider Approvals", "/admin/rider-approvals"],
+    ["Rider Payouts", "/admin/rider-payouts"],
+  ]},
+  { title: "4 · ADMIN", links: [
+    ["Finance · Profit/Loss", "/admin/finance"],
+    ["Refer & Popups", "/admin/referrals"],
+    ["📱 Open on mobile", "/admin/mobile"],
+    ["Admins", "/admin/people?tab=admins"],
+    ["Settings & Pricing", "/admin/settings"],
+    ["All Pages", "/admin/all-pages"],
+  ]},
+];
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-800 md:flex">
+      {open && <button aria-label="Close menu" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-slate-950/40 md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex h-14 items-center justify-between border-b border-slate-100 px-4">
+          <Link href="/admin" className="text-lg font-extrabold tracking-tight text-emerald-700">Fresh2Cook <span className="text-slate-500">Admin</span></Link>
+          <button onClick={() => setOpen(false)} className="rounded-lg px-2 py-1 text-slate-500 md:hidden">✕</button>
+        </div>
+        <div className="border-b border-slate-100 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Operations Workspace</p>
+          <p className="mt-1 text-sm font-semibold">Admin Control Panel</p>
+        </div>
+        <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <p className="mb-1 px-3 text-[10px] font-bold tracking-[0.16em] text-slate-400">{group.title}</p>
+              <div className="space-y-0.5">
+                {group.links.map(([label, href]) => {
+                  const active = pathname === href || (href !== "/admin" && pathname.startsWith(href + "/"));
+                  const cls = `flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${active ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`;
+                  // links with ?tab= open as a normal link so the page picks the right tab
+                  if (href.includes("?")) {
+                    return (
+                      <a key={href} href={href} className={cls}>
+                        <span>{label}</span>
+                      </a>
+                    );
+                  }
+                  return (
+                    <Link key={href} href={href} onClick={() => setOpen(false)} className={cls}>
+                      <span>{label}</span>
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <div className="border-t border-slate-100 p-3">
+          <Link href="/" className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50">← Open Storefront</Link>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:px-5">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setOpen(true)} aria-label="Open navigation" className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm md:hidden">☰</button>
+            <div>
+              <p className="text-sm font-bold">Admin Workspace</p>
+              <p className="hidden text-[11px] text-slate-400 sm:block">Orders · Inventory · Delivery · Team</p>
+            </div>
+          </div>
+          <AdminUserBadge />
+        </header>
+        <main className="mx-auto w-full max-w-[1800px] p-3 sm:p-4 lg:p-5">{children}</main>
+      </div>
+    </div>
+  );
+}
+

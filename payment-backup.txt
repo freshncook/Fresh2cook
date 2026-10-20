@@ -1,0 +1,17 @@
+const wallet = JSON.parse(
+  localStorage.getItem("freshcut-wallet") ||
+  '{"balance":0,"points":0}'
+);
+
+wallet.balance =
+  Number(wallet.balance || 0) +
+  Math.floor(total * 0.05);
+
+wallet.points =
+  Number(wallet.points || 0) +
+  Math.floor(total * 0.05);
+
+localStorage.setItem(
+  "freshcut-wallet",
+  JSON.stringify(wallet)
+);
